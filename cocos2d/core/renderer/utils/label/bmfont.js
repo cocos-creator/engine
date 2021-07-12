@@ -32,6 +32,9 @@ const Overflow = Label.Overflow;
 
 const shareLabelInfo = require('../utils').shareLabelInfo;
 
+const GraphemeSplitter = require('../../../utils/grapheme-splitter');
+const splitter = new GraphemeSplitter();
+
 let LetterInfo = function() {
     this.char = '';
     this.valid = true;
@@ -83,7 +86,7 @@ export default class BmfontAssembler extends Assembler2D {
 
         _comp = comp;
         
-        this._reserveQuads(comp, comp.string.toString().length);
+        this._reserveQuads(comp, splitter.splitGraphemes(comp.string.toString()).length);
         this._updateFontFamily(comp);
         this._updateProperties(comp);
         this._updateLabelInfo(comp);
@@ -118,7 +121,7 @@ export default class BmfontAssembler extends Assembler2D {
     }
 
     _updateProperties (comp) {
-        _string = comp.string.toString();
+        _string = splitter.splitGraphemes(comp.string.toString());
         _fontSize = comp.fontSize;
         _originFontSize = _fntConfig ? _fntConfig.fontSize : comp.fontSize;
         _hAlign = comp.horizontalAlign;
@@ -173,7 +176,7 @@ export default class BmfontAssembler extends Assembler2D {
         if (kerningDict && !cc.js.isEmptyObject(kerningDict)) {
             let prev = -1;
             for (let i = 0; i < stringLen; ++i) {
-                let key = string.charCodeAt(i);
+                let key = string[i];
                 let kerningAmount = kerningDict[(prev << 16) | (key & 0xffff)] || 0;
                 if (i < stringLen - 1) {
                     horizontalKernings[i] = kerningAmount;
@@ -202,7 +205,7 @@ export default class BmfontAssembler extends Assembler2D {
         let letterPosition = cc.v2(0, 0);
 
         for (let index = 0; index < textLen;) {
-            let character = _string.charAt(index);
+            let character = _string[index];
             if (character === "\n") {
                 _linesWidth.push(letterRight);
                 letterRight = 0;
@@ -223,7 +226,7 @@ export default class BmfontAssembler extends Assembler2D {
 
             for (let tmp = 0; tmp < tokenLen; ++tmp) {
                 let letterIndex = index + tmp;
-                character = _string.charAt(letterIndex);
+                character = _string[letterIndex];
                 if (character === "\r") {
                     this._recordPlaceholderInfo(letterIndex, character);
                     continue;
@@ -336,7 +339,7 @@ export default class BmfontAssembler extends Assembler2D {
     }
 
     _getFirstWordLen (text, startIndex, textLen) {
-        let character = text.charAt(startIndex);
+        let character = text[startIndex];
         if (textUtils.isUnicodeCJK(character)
             || character === "\n"
             || textUtils.isUnicodeSpace(character)) {
@@ -351,7 +354,7 @@ export default class BmfontAssembler extends Assembler2D {
         let nextLetterX = letterDef.xAdvance * _bmfontScale + _spacingX;
         let letterX;
         for (let index = startIndex + 1; index < textLen; ++index) {
-            character = text.charAt(index);
+            character = text[index];
 
             letterDef = shareLabelInfo.fontAtlas.getLetterDefinitionForChar(character, shareLabelInfo);
             if (!letterDef) {
@@ -391,7 +394,7 @@ export default class BmfontAssembler extends Assembler2D {
         }
 
         _lettersInfo[letterIndex].char = char;
-        _lettersInfo[letterIndex].hash = char.charCodeAt(0) + shareLabelInfo.hash;
+        _lettersInfo[letterIndex].hash = textUtils.charToCodeString(char) + shareLabelInfo.hash;
         _lettersInfo[letterIndex].valid = false;
     }
 
@@ -400,7 +403,7 @@ export default class BmfontAssembler extends Assembler2D {
             let tmpInfo = new LetterInfo();
             _lettersInfo.push(tmpInfo);
         }
-        let char = character.charCodeAt(0);
+        let char = textUtils.charToCodeString(character);
         let key = char + shareLabelInfo.hash;
 
         _lettersInfo[letterIndex].line= lineIndex;

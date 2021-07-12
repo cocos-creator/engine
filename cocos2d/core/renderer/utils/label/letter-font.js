@@ -54,7 +54,7 @@ function LetterTexture(char, labelInfo) {
     this._width = 0;
     this._height = 0;
     this._offsetY = 0;
-    this._hash = char.charCodeAt(0) + labelInfo.hash;
+    this._hash = textUtils.charToCodeString(char) + labelInfo.hash;
 }
 
 LetterTexture.prototype = {
@@ -233,7 +233,7 @@ cc.js.mixin(LetterAtlas.prototype, {
     },
 
     getLetterDefinitionForChar: function(char, labelInfo) {
-        let hash = char.charCodeAt(0) + labelInfo.hash;
+        let hash = textUtils.charToCodeString(char) + labelInfo.hash;
         let letter = this._fontDefDictionary._letterDefinitions[hash];
         if (!letter) {
             let temp = new LetterTexture(char, labelInfo);

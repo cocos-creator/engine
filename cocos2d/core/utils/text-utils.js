@@ -26,6 +26,9 @@
 
 import js from '../platform/js'
 
+const GraphemeSplitter = require('./grapheme-splitter');
+const splitter = new GraphemeSplitter();
+
 // Draw text the textBaseline ratio (Can adjust the appropriate baseline ratio based on the platform)
 let _BASELINE_RATIO = 0.26;
 let _BASELINE_OFFSET = 0;
@@ -185,23 +188,7 @@ var textUtils = {
     // _safeSubstring(a, 1, 2) === _safeSubstring(a, 1, 3) === '😉'
     // _safeSubstring(a, 2, 3) === _safeSubstring(a, 2, 4) === '🚗'
     _safeSubstring (targetString, startIndex, endIndex) {
-        let newStartIndex = startIndex, newEndIndex = endIndex;
-        let startChar = targetString[startIndex];
-        if (this.lowSurrogateRex.test(startChar)) {
-            newStartIndex--;
-        }
-        if (endIndex !== undefined) {
-            if (endIndex - 1 !== startIndex) {
-                let endChar = targetString[endIndex - 1];
-                if (this.highSurrogateRex.test(endChar)) {
-                    newEndIndex--;
-                }
-            }
-            else if (this.highSurrogateRex.test(startChar)) {
-                newEndIndex++;
-            }
-        }
-        return targetString.substring(newStartIndex, newEndIndex);
+        return splitter.splitGraphemes(targetString).slice(startIndex, endIndex).join('');
     },
 
     fragmentText: function (stringToken, allWidth, maxWidth, measureText) {
@@ -307,6 +294,13 @@ var textUtils = {
             }
         }
         return wrappedWords;
+    },
+    charToCodeString(char) {
+        let charLen = char.length, codeString = '';
+        for (let i = 0; i < charLen; i++) {
+            codeString += char.charCodeAt(i).toString();
+        }
+        return codeString;
     },
 };
 
