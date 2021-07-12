@@ -100,7 +100,7 @@ export default class Pass {
         stencilZPassOp = gfx.STENCIL_OP_KEEP,
         stencilWriteMask = 0xff
     ) {
-        this._stencilTest = enabled;
+        this._stencilTest = enabled === true ? gfx.STENCIL_ENABLE : enabled;
         this._stencilFuncFront = stencilFunc;
         this._stencilRefFront = stencilRef;
         this._stencilMaskFront = stencilMask;
@@ -124,7 +124,7 @@ export default class Pass {
         stencilZPassOp = gfx.STENCIL_OP_KEEP,
         stencilWriteMask = 0xff
     ) {
-        this._stencilTest = stencilTest;
+        this._stencilTest = stencilTest === true ? gfx.STENCIL_ENABLE : stencilTest;
         this._stencilFuncBack = stencilFunc;
         this._stencilRefBack = stencilRef;
         this._stencilMaskBack = stencilMask;

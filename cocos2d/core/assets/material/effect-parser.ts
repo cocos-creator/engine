@@ -102,10 +102,11 @@ function parseTechniques (effectAsset) {
             let depthStencilState = pass.depthStencilState;
             if (depthStencilState) {
                 newPass.setDepth(depthStencilState.depthTest, depthStencilState.depthWrite, depthStencilState.depthFunc);
-                newPass.setStencilFront(depthStencilState.stencilTest, depthStencilState.stencilFuncFront, depthStencilState.stencilRefFront, depthStencilState.stencilMaskFront,
-                    depthStencilState.stencilFailOpFront, depthStencilState.stencilZFailOpFront, depthStencilState.stencilZPassOpFront, depthStencilState.stencilWriteMaskFront);
-                newPass.setStencilBack(depthStencilState.stencilTest, depthStencilState.stencilFuncBack, depthStencilState.stencilRefBack, depthStencilState.stencilMaskBack,
-                    depthStencilState.stencilFailOpBack, depthStencilState.stencilZFailOpBack, depthStencilState.stencilZPassOpBack, depthStencilState.stencilWriteMaskBack);
+
+                if (!CC_EDITOR) {
+                    newPass.setStencilFront(depthStencilState.stencilTestFront, depthStencilState.stencilFuncFront, depthStencilState.stencilRefFront, depthStencilState.stencilReadMaskFront, depthStencilState.stencilFailOpFront, depthStencilState.stencilZFailOpFront, depthStencilState.stencilPassOpFront, depthStencilState.stencilWriteMaskFront);
+                    newPass.setStencilBack(depthStencilState.stencilTestBack, depthStencilState.stencilFuncBack, depthStencilState.stencilRefBack, depthStencilState.stencilReadMaskBack, depthStencilState.stencilFailOpBack, depthStencilState.stencilZFailOpBack, depthStencilState.stencilPassOpBack, depthStencilState.stencilWriteMaskBack);
+                }
             }
         }
         techniques[j] = new Technique(techName, passes);
