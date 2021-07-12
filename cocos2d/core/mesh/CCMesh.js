@@ -499,10 +499,13 @@ let Mesh = cc.Class({
      * @param {ArrayBuffer} buffer The target buffer.
      * @param {Number} stride The byte interval between adjacent attributes in the target buffer.
      * @param {Number} offset The offset of the first attribute in the target buffer.
+     * @param {Number} offset The offset of the first attribute in the target buffer.
+     * @param {Number} bytes The size of the attribute.
+     * @param {Number} num The unit count of the attribute.
      * @returns {Boolean} If the specified sub-grid does not exist, the sub-grid does not exist, or the specified attribute cannot be read, return `false`, otherwise return` true`.
      * @method copyAttribute
      */
-    copyAttribute (primitiveIndex, attributeName, buffer, stride, offset) {
+    copyAttribute (primitiveIndex, attributeName, buffer, stride, offset, bytes, num) {
         let written = false;
         let subData = this._subDatas[primitiveIndex];
 
@@ -520,16 +523,18 @@ let Mesh = cc.Class({
         let data = this._getAttrMeshData(primitiveIndex, attributeName);
         let vertexCount = subData.vData.byteLength / format._bytes;
         let eleByte = fmt.bytes / fmt.num;
+        let eleByteTarget = bytes / num;
+        if (eleByte != eleByteTarget) return written;
 
         if (data.length > 0) {
             const outputView = new DataView(buffer, offset);
         
             let outputStride = stride;
-            let num = fmt.num;
+            let outputNum = fmt.num > num ? num : fmt.num;
 
             for (let i = 0; i < vertexCount; ++i) {
-                let index = i * num;
-                for (let j = 0; j < num; ++j) {
+                let index = i * outputNum;
+                for (let j = 0; j < outputNum; ++j) {
                     const inputOffset = index + j;
                     const outputOffset = outputStride * i + eleByte * j;
 

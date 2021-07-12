@@ -59,7 +59,7 @@ var vfmtMesh = new gfx.VertexFormat([
     { name: gfx.ATTR_COLOR, type: gfx.ATTR_TYPE_UINT8, num: 4, normalize: true },
     { name: gfx.ATTR_TEX_COORD3, type: gfx.ATTR_TYPE_FLOAT32, num: 3 },
     { name: gfx.ATTR_NORMAL, type: gfx.ATTR_TYPE_FLOAT32, num: 3 },
-    { name: gfx.ATTR_COLOR1, type: gfx.ATTR_TYPE_UINT8, num: 4, normalize: true }
+    { name: gfx.ATTR_COLOR1, type: gfx.ATTR_TYPE_FLOAT32, num: 4, normalize: true }
 ]);
 vfmtMesh.name = 'vfmtMesh';
 
