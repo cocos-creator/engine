@@ -141,6 +141,14 @@ export class SkeletalAnimation extends Animation {
 
     set useBakedAnimation (val) {
         this._useBakedAnimation = val;
+
+        for (const stateName in this._nameToState) {
+            const state = this._nameToState[stateName];
+            if (state instanceof SkeletalAnimationState) {
+                state.useBaked(val);
+            }
+        }
+
         const comps = this.node.getComponentsInChildren(SkinnedMeshRenderer);
         for (let i = 0; i < comps.length; ++i) {
             const comp = comps[i];

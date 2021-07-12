@@ -97,10 +97,12 @@ export class SkeletalAnimationState extends AnimationState {
         this._bakedDuration = this._frames / info.sample; // last key
     }
 
-    public onPlay () {
-        super.onPlay();
-        const baked = this._parent!.useBakedAnimation;
-        if (baked) {
+    /**
+     * @internal For internal usage only.
+     * @param enabled
+     */
+    public useBaked (enabled: boolean) {
+        if (enabled) {
             this._sampleCurves = this._sampleCurvesBaked;
             this.duration = this._bakedDuration;
             this._animInfoMgr.switchClip(this._animInfo!, this.clip);
