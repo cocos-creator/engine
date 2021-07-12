@@ -66,6 +66,9 @@ LetterTexture.prototype = {
     },
     _updateProperties () {
         this._texture = new cc.Texture2D();
+        if (this._labelInfo.premultiply) {
+            this._texture.setPremultiplyAlpha(true)
+        }
         this._data = Label._canvasPool.get();
         this._canvas = this._data.canvas;
         this._context = this._data.context;
@@ -92,6 +95,8 @@ LetterTexture.prototype = {
             width = this._canvas.width,
             height = this._canvas.height;
 
+        const premultiply = labelInfo.premultiply;
+
         const fontSize = this._labelInfo.fontSize;
         let startX = width / 2;
         let startY = height / 2 +  fontSize * textUtils.MIDDLE_RATIO + fontSize * textUtils.BASELINE_OFFSET;
@@ -101,12 +106,16 @@ LetterTexture.prototype = {
         context.lineJoin = 'round';
         context.textAlign = 'center';
         context.clearRect(0, 0, width, height);
-        //Add a white background to avoid black edges.
-        context.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${_invisibleAlpha})`;
-        context.fillRect(0, 0, width, height);
-        context.font = labelInfo.fontDesc;
 
+        //Add a white background to avoid black edges.
+        if (premultiply) {
+            let _fillColor = labelInfo.isOutlined ? labelInfo.out : color;
+            context.fillStyle = `rgba(${_fillColor.r}, ${_fillColor.g}, ${_fillColor.b}, ${_invisibleAlpha})`;
+            context.fillRect(0, 0, width, height);
+        }
         context.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+
+        context.font = labelInfo.fontDesc;
         if (labelInfo.isOutlined && labelInfo.margin > 0) {
             let strokeColor = labelInfo.out || WHITE;
             context.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${strokeColor.a / 255})`;
@@ -131,7 +140,7 @@ function LetterAtlas (width, height) {
     texture.update();
 
     this._fontDefDictionary = new FontAtlas(texture);
-    
+
     this._x = space;
     this._y = space;
     this._nexty = space;
@@ -145,7 +154,7 @@ function LetterAtlas (width, height) {
 cc.js.mixin(LetterAtlas.prototype, {
     insertLetterTexture (letterTexture) {
         let texture = letterTexture._texture;
-        let width = texture.width, height = texture.height;        
+        let width = texture.width, height = texture.height;
 
         if ((this._x + width + space) > this._width) {
             this._x = space;
@@ -163,7 +172,7 @@ cc.js.mixin(LetterAtlas.prototype, {
         this._fontDefDictionary._texture.drawTextureAt(texture, this._x, this._y);
 
         this._dirty = true;
-        
+
         let letter = new FontLetterDefinition();
         letter.u = this._x + bleed/2;
         letter.v = this._y + bleed/2;
@@ -177,8 +186,8 @@ cc.js.mixin(LetterAtlas.prototype, {
         this._x += width + space;
 
         this._fontDefDictionary.addLetterDefinitions(letterTexture._hash, letter);
-        
-        return letter
+
+        return letter;
     },
 
     update () {
@@ -220,7 +229,7 @@ cc.js.mixin(LetterAtlas.prototype, {
         let texture = new RenderTexture();
         texture.initWithSize(this._width, this._height);
         texture.update();
-        
+
         this._fontDefDictionary._texture = texture;
     },
 
@@ -250,11 +259,12 @@ function computeHash (labelInfo) {
     let hashData = '';
     let color = labelInfo.color.toHEX();
     let out = '';
+    let premultiply = labelInfo.premultiply ? 'P' : '';
     if (labelInfo.isOutlined && labelInfo.margin > 0) {
         out = out + labelInfo.margin + labelInfo.out.toHEX();
     }
-    
-    return hashData + labelInfo.fontSize + labelInfo.fontFamily + color + out;
+
+    return hashData + labelInfo.fontSize + labelInfo.fontFamily + color + out + premultiply;
 }
 
 let _shareAtlas = null;
@@ -269,7 +279,7 @@ export default class LetterFontAssembler extends WebglBmfontAssembler {
             _shareAtlas = new LetterAtlas(_atlasWidth, _atlasHeight);
             cc.Label._shareAtlas = _shareAtlas;
         }
-        
+
         return _shareAtlas.getTexture();
     }
 
@@ -294,6 +304,7 @@ export default class LetterFontAssembler extends WebglBmfontAssembler {
     _updateLabelInfo (comp) {
         shareLabelInfo.fontDesc = this._getFontDesc();
         shareLabelInfo.color = comp.node.color;
+        shareLabelInfo.premultiply = comp._srcBlendFactor === cc.macro.BlendFactor.ONE;
         shareLabelInfo.hash = computeHash(shareLabelInfo);
     }
 

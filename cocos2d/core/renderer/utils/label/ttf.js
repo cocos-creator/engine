@@ -99,7 +99,7 @@ export default class TTFAssembler extends Assembler2D {
 
     updateRenderData (comp) {
         super.updateRenderData(comp);
-        
+
         if (!comp._vertsDirty) return;
 
         this._updateProperties(comp);
@@ -262,7 +262,7 @@ export default class TTFAssembler extends Assembler2D {
         if (_shadowComp) {
             this._setupShadow();
         }
-        
+
         if (_outlineComp) {
             this._setupOutline();
         }
@@ -303,16 +303,15 @@ export default class TTFAssembler extends Assembler2D {
         _context.clearRect(0, 0, _canvas.width, _canvas.height);
         // use round for line join to avoid sharp intersect point
         _context.lineJoin = 'round';
+
         //Add a white background to avoid black edges.
-        if (!_premultiply) {
+        if (_premultiply) {
             //TODO: it is best to add alphaTest to filter out the background color.
             let _fillColor = _outlineComp ? _outlineColor : _color;
             _context.fillStyle = `rgba(${_fillColor.r}, ${_fillColor.g}, ${_fillColor.b}, ${_invisibleAlpha})`;
             _context.fillRect(0, 0, _canvas.width, _canvas.height);
-            _context.fillStyle = `rgba(${_color.r}, ${_color.g}, ${_color.b}, 1)`;
-        } else {
-            _context.fillStyle = `rgba(${_color.r}, ${_color.g}, ${_color.b}, ${_color.a / 255.0})`;
         }
+        _context.fillStyle = `rgba(${_color.r}, ${_color.g}, ${_color.b}, 1)`;
 
         let startPosition = this._calculateFillTextStartPosition();
         let lineHeight = this._getLineHeight();
@@ -412,7 +411,7 @@ export default class TTFAssembler extends Assembler2D {
 
     _calculateShrinkFont (paragraphedStrings) {
         let paragraphLength = this._calculateParagraphLength(paragraphedStrings, _context);
-        
+
         let i = 0;
         let totalHeight = 0;
         let maxLength = 0;
