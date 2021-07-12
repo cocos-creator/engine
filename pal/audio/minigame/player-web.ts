@@ -1,6 +1,7 @@
 import { minigame } from 'pal/minigame';
 import { systemInfo } from 'pal/system-info';
 import { clamp, clamp01, EventTarget } from '../../../cocos/core';
+import AudioTimer from '../audio-timer';
 import { enqueueOperation, OperationInfo, OperationQueueable } from '../operation-queue';
 import { AudioEvent, AudioState, AudioType } from '../type';
 
@@ -58,9 +59,8 @@ export class AudioPlayerWeb implements OperationQueueable {
     private _gainNode: GainNode;
     private _volume = 1;
     private _loop = false;
-    private _startTime = 0;
-    private _playTimeOffset = 0;
     private _state: AudioState = AudioState.INIT;
+    private _audioTimer: AudioTimer;
 
     private static _audioBufferCacheMap: Record<string, AudioBuffer> = {};
 
@@ -70,6 +70,7 @@ export class AudioPlayerWeb implements OperationQueueable {
 
     constructor (audioBuffer: AudioBuffer, url: string) {
         this._audioBuffer = audioBuffer;
+        this._audioTimer = new AudioTimer(audioBuffer.duration);
         this._gainNode = audioContext!.createGain();
         this._gainNode.connect(audioContext!.destination);
 
@@ -171,14 +172,13 @@ export class AudioPlayerWeb implements OperationQueueable {
         return this._audioBuffer.duration;
     }
     get currentTime (): number {
-        if (this._state !== AudioState.PLAYING) { return this._playTimeOffset; }
-        return (audioContext!.currentTime - this._startTime + this._playTimeOffset) % this._audioBuffer.duration;
+        return this._audioTimer.currentTime;
     }
 
     @enqueueOperation
     seek (time: number): Promise<void> {
         return new Promise((resolve) => {
-            this._playTimeOffset = clamp(time, 0, this._audioBuffer.duration);
+            this._audioTimer.seek(time);
             if (this._state === AudioState.PLAYING) {
                 // one AudioBufferSourceNode can't start twice
                 // need to create a new one to start from the offset
@@ -205,13 +205,12 @@ export class AudioPlayerWeb implements OperationQueueable {
             this._sourceNode.loop = this._loop;
             this._sourceNode.connect(this._gainNode);
 
-            this._sourceNode.start(0, this._playTimeOffset);
+            this._sourceNode.start(0, this._audioTimer.currentTime);
             this._state = AudioState.PLAYING;
-            this._startTime = audioContext!.currentTime;
+            this._audioTimer.start();
 
             this._sourceNode.onended = () => {
-                this._playTimeOffset = 0;
-                this._startTime = audioContext!.currentTime;
+                this._audioTimer.stop();
                 this._eventTarget.emit(AudioEvent.ENDED);
                 this._state = AudioState.INIT;
             };
@@ -235,7 +234,7 @@ export class AudioPlayerWeb implements OperationQueueable {
         if (this._state !== AudioState.PLAYING || !this._sourceNode) {
             return Promise.resolve();
         }
-        this._playTimeOffset = (audioContext!.currentTime - this._startTime + this._playTimeOffset) % this._audioBuffer.duration;
+        this._audioTimer.pause();
         this._state = AudioState.PAUSED;
         this._stopSourceNode();
         return Promise.resolve();
@@ -246,7 +245,7 @@ export class AudioPlayerWeb implements OperationQueueable {
         if (!this._sourceNode) {
             return Promise.resolve();
         }
-        this._playTimeOffset = 0;
+        this._audioTimer.stop();
         this._state = AudioState.STOPPED;
         this._stopSourceNode();
         return Promise.resolve();
