@@ -436,15 +436,16 @@ cc.Director.prototype = {
         for (let i = 0; i < persistNodeList.length; i++) {
             let node = persistNodeList[i];
             var existNode = scene.getChildByUuid(node.uuid);
+            var index = -1;
             if (existNode) {
-                // scene also contains the persist node, select the old one
-                var index = existNode.getSiblingIndex();
-                existNode._destroyImmediate();
-                scene.insertChild(node, index);
+                // scene also contains the persist node, remove the old one
+                existNode.removeFromParent(false);
+                index = existNode.getSiblingIndex();
             }
             else {
-                node.parent = scene;
+                index = node.getSiblingIndex();
             }
+            scene.insertChild(node, index);
         }
         CC_BUILD && CC_DEBUG && console.timeEnd('AttachPersist');
 

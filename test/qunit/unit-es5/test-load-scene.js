@@ -87,7 +87,7 @@ test('persist node should replace existing node in scene', function () {
     cc.director.runSceneImmediate(newScene);
 
     ok(oldNode.parent === newScene, 'persist node should add to new scene');
-    strictEqual(oldNode.getSiblingIndex(), 1, 'persist node should restore sibling index');
+    strictEqual(oldNode.getSiblingIndex(), 0, 'persist node should restore sibling index');
     ok(newNode.parent === null, 'existing node should not in new scene');
 
     cc.game.step(); // ensure sgNode sorted
