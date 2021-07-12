@@ -68,9 +68,8 @@ export class ConeCollider extends Collider {
 
     public set radius (value) {
         if (this._radius === value) return;
-        if (value < 0) value = 0;
-        this._radius = value;
-        if (!EDITOR && !TEST) {
+        this._radius = Math.abs(value);
+        if (this._shape) {
             this.shape.setRadius(value);
         }
     }

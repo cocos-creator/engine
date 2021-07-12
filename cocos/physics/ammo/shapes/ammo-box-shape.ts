@@ -32,19 +32,18 @@
 import Ammo from '../ammo-instantiated';
 import { AmmoShape } from './ammo-shape';
 import { Vec3 } from '../../../core';
-import { BoxCollider } from '../../../../exports/physics-framework';
+import { BoxCollider, physics } from '../../../../exports/physics-framework';
 import { cocos2AmmoVec3 } from '../ammo-util';
 import { AmmoBroadphaseNativeTypes } from '../ammo-enum';
 import { IBoxShape } from '../../spec/i-physics-shape';
 import { IVec3Like } from '../../../core/math/type-define';
-import { AmmoConstant, CC_V3_0 } from '../ammo-const';
+import { AmmoConstant } from '../ammo-const';
+import { absolute, VEC3_0 } from '../../utils/util';
 
 export class AmmoBoxShape extends AmmoShape implements IBoxShape {
     setSize (size: IVec3Like) {
-        const v3_0 = CC_V3_0;
-        Vec3.multiplyScalar(v3_0, size, 0.5);
         const hf = AmmoConstant.instance.VECTOR3_0;
-        cocos2AmmoVec3(hf, v3_0);
+        cocos2AmmoVec3(hf, this.getMinUnscaledHalfExtents(VEC3_0));
         this.impl.setUnscaledHalfExtents(hf);
         this.updateCompoundTransform();
     }
@@ -62,17 +61,40 @@ export class AmmoBoxShape extends AmmoShape implements IBoxShape {
     }
 
     onComponentSet () {
-        const s = this.collider.size;
         const hf = AmmoConstant.instance.VECTOR3_0;
-        hf.setValue(s.x / 2, s.y / 2, s.z / 2);
+        cocos2AmmoVec3(hf, this.getMinUnscaledHalfExtents(VEC3_0));
         this._btShape = new Ammo.btBoxShape(hf);
         this.setScale();
     }
 
     setScale () {
         super.setScale();
-        cocos2AmmoVec3(this.scale, this._collider.node.worldScale);
+        cocos2AmmoVec3(this.scale, this.getMinScale(VEC3_0));
         this._btShape.setLocalScaling(this.scale);
         this.updateCompoundTransform();
+    }
+
+    getMinUnscaledHalfExtents (out:Vec3) {
+        const size = this.collider.size;
+        const ws = absolute(VEC3_0.set(this._collider.node.worldScale));
+        const minVolumeSize = physics.config.minVolumeSize;
+        const halfSizeX = size.x / 2; const halfSizeY = size.y / 2; const halfSizeZ = size.z / 2;
+        const halfX = halfSizeX * ws.x < minVolumeSize ? minVolumeSize / ws.x : halfSizeX;
+        const halfY = halfSizeY * ws.y < minVolumeSize ? minVolumeSize / ws.y : halfSizeY;
+        const halfZ = halfSizeZ * ws.z < minVolumeSize ? minVolumeSize / ws.z : halfSizeZ;
+        out.set(halfX, halfY, halfZ);
+        return out;
+    }
+
+    getMinScale (out:Vec3) {
+        const size = this.collider.size;
+        const ws = absolute(VEC3_0.set(this._collider.node.worldScale));
+        const minVolumeSize = physics.config.minVolumeSize;
+        const halfSizeX = size.x / 2; const halfSizeY = size.y / 2; const halfSizeZ = size.z / 2;
+        const scaleX = halfSizeX * ws.x < minVolumeSize ? minVolumeSize / halfSizeX : ws.x;
+        const scaleY = halfSizeY * ws.y < minVolumeSize ? minVolumeSize / halfSizeY : ws.y;
+        const scaleZ = halfSizeZ * ws.z < minVolumeSize ? minVolumeSize / halfSizeZ : ws.z;
+        out.set(scaleX, scaleY, scaleZ);
+        return out;
     }
 }

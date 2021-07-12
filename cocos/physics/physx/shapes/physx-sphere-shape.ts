@@ -28,6 +28,7 @@
  * @hidden
  */
 
+import { absMaxComponent } from '../../../core';
 import { SphereCollider } from '../../framework';
 import { ISphereShape } from '../../spec/i-physics-shape';
 import { PX } from '../export-physx';
@@ -66,11 +67,7 @@ export class PhysXSphereShape extends PhysXShape implements ISphereShape {
 
     updateGeometry () {
         const co = this.collider;
-        const ws = co.node.worldScale;
-        const absX = Math.abs(ws.x);
-        const absY = Math.abs(ws.y);
-        const absZ = Math.abs(ws.z);
-        const maxSp = Math.max(Math.max(absX, absY), absZ);
+        const maxSp = Math.abs(absMaxComponent(this.collider.node.worldScale));
         PhysXSphereShape.SPHERE_GEOMETRY.setRadius(Math.max(0.0001, co.radius * maxSp));
     }
 }

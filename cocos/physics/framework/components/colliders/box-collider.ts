@@ -41,6 +41,7 @@ import { Vec3 } from '../../../../core/math';
 import { Collider } from './collider';
 import { IBoxShape } from '../../../spec/i-physics-shape';
 import { EColliderType } from '../../physics-enum';
+import { absolute } from '../../../utils/util';
 
 /**
  * @en
@@ -68,7 +69,9 @@ export class BoxCollider extends Collider {
     }
 
     public set size (value) {
+        if (Vec3.strictEquals(this._size, value)) return;
         Vec3.copy(this._size, value);
+        absolute(this._size);
         if (this._shape) {
             this.shape.setSize(this._size);
         }

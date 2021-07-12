@@ -30,7 +30,7 @@
 
 import { IVec3Like } from '../../../core';
 import { BoxCollider } from '../../framework';
-import { VEC3_0 } from '../../utils/util';
+import { absolute, VEC3_0 } from '../../utils/util';
 import { IBoxShape } from '../../spec/i-physics-shape';
 import { PX } from '../export-physx';
 import { EPhysXShapeType, PhysXShape } from './physx-shape';
@@ -70,12 +70,7 @@ export class PhysXBoxShape extends PhysXShape implements IBoxShape {
     updateGeometry (): void {
         const co = this.collider;
         const ws = co.node.worldScale;
-        VEC3_0.set(co.size);
-        VEC3_0.multiplyScalar(0.5);
-        VEC3_0.multiply(ws);
-        VEC3_0.x = Math.abs(VEC3_0.x);
-        VEC3_0.y = Math.abs(VEC3_0.y);
-        VEC3_0.z = Math.abs(VEC3_0.z);
-        PhysXBoxShape.BOX_GEOMETRY.setHalfExtents(VEC3_0);
+        VEC3_0.set(co.size).multiplyScalar(0.5).multiply(ws);
+        PhysXBoxShape.BOX_GEOMETRY.setHalfExtents(absolute(VEC3_0));
     }
 }

@@ -91,3 +91,10 @@ export function shrinkPositions (buffer: Float32Array | number[]): number[] {
     }
     return pos;
 }
+
+export function absolute (v: Vec3) {
+    v.x = Math.abs(v.x);
+    v.y = Math.abs(v.y);
+    v.z = Math.abs(v.z);
+    return v;
+}

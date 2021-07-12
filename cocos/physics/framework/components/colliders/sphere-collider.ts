@@ -66,8 +66,9 @@ export class SphereCollider extends Collider {
     }
 
     public set radius (value) {
-        this._radius = value;
-        if (!EDITOR && !TEST) {
+        if (this._radius === value) return;
+        this._radius = Math.abs(value);
+        if (this._shape) {
             this.shape.setRadius(this._radius);
         }
     }

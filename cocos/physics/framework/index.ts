@@ -53,6 +53,22 @@ import { legacyCC } from '../../core/global-exports';
 import { selector } from './physics-selector';
 import * as utils from '../utils/util';
 
+/**
+ * @en
+ * This object stores various types of configuration properties.
+ * @zh
+ * 该对象存储了多种类型的配置属性。
+ */
+const config = {
+    /**
+     * @en
+     * The minimum size of the collision body.
+     * @zh
+     * 碰撞体的最小尺寸。
+     */
+    minVolumeSize: 1e-5,
+};
+
 export {
     PhysicsSystem,
     PhysicsRayResult,
@@ -78,6 +94,7 @@ export {
 
     selector,
     utils,
+    config,
 };
 
 legacyCC.PhysicsSystem = PhysicsSystem;

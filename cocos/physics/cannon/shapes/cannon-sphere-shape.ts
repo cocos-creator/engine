@@ -29,12 +29,11 @@
  */
 
 import CANNON from '@cocos/cannon';
-import { Vec3 } from '../../../core/math';
-import { maxComponent } from '../../utils/util';
+import { absMaxComponent, clamp, Vec3 } from '../../../core/math';
 import { commitShapeUpdates } from '../cannon-util';
 import { CannonShape } from './cannon-shape';
 import { ISphereShape } from '../../spec/i-physics-shape';
-import { SphereCollider } from '../../../../exports/physics-framework';
+import { physics, SphereCollider } from '../../../../exports/physics-framework';
 
 export class CannonSphereShape extends CannonShape implements ISphereShape {
     get collider () {
@@ -46,8 +45,8 @@ export class CannonSphereShape extends CannonShape implements ISphereShape {
     }
 
     setRadius (v: number) {
-        const max = maxComponent(this.collider.node.worldScale);
-        this.impl.radius = v * Math.abs(max);
+        const max = Math.abs(absMaxComponent(this.collider.node.worldScale));
+        this.impl.radius = clamp(v * max, physics.config.minVolumeSize, Number.MAX_VALUE);
         this.impl.updateBoundingSphereRadius();
         if (this._index !== -1) {
             commitShapeUpdates(this._body);

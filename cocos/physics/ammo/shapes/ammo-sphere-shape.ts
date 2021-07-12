@@ -31,15 +31,16 @@
 /* eslint-disable new-cap */
 import Ammo from '../ammo-instantiated';
 import { AmmoShape } from './ammo-shape';
-import { SphereCollider } from '../../../../exports/physics-framework';
+import { physics, SphereCollider } from '../../../../exports/physics-framework';
 import { cocos2AmmoVec3 } from '../ammo-util';
 import { AmmoBroadphaseNativeTypes } from '../ammo-enum';
 import { ISphereShape } from '../../spec/i-physics-shape';
-import { CC_V3_0 } from '../ammo-const';
+import { absMaxComponent } from '../../../core';
+import { VEC3_0 } from '../../utils/util';
 
 export class AmmoSphereShape extends AmmoShape implements ISphereShape {
-    setRadius (radius: number) {
-        this.impl.setUnscaledRadius(radius);
+    setRadius (_radius: number) {
+        this.impl.setUnscaledRadius(this.getMinUnscaledRadius());
         this.updateCompoundTransform();
     }
 
@@ -56,21 +57,30 @@ export class AmmoSphereShape extends AmmoShape implements ISphereShape {
     }
 
     onComponentSet () {
-        this._btShape = new Ammo.btSphereShape(this.collider.radius);
+        this._btShape = new Ammo.btSphereShape(this.getMinUnscaledRadius());
         this.setScale();
     }
 
     setScale () {
         super.setScale();
-        const v3_0 = CC_V3_0;
-        const ws = this._collider.node.worldScale;
-        const absX = Math.abs(ws.x);
-        const absY = Math.abs(ws.y);
-        const absZ = Math.abs(ws.z);
-        const max_sp = Math.max(Math.max(absX, absY), absZ);
-        v3_0.set(max_sp, max_sp, max_sp);
-        cocos2AmmoVec3(this.scale, v3_0);
+        const scale = this.getMinScale();
+        VEC3_0.set(scale, scale, scale);
+        cocos2AmmoVec3(this.scale, VEC3_0);
         this._btShape.setLocalScaling(this.scale);
         this.updateCompoundTransform();
+    }
+
+    getMinUnscaledRadius () {
+        const radius = this.collider.radius;
+        const ws = Math.abs(absMaxComponent(this._collider.node.worldScale));
+        const minVolumeSize = physics.config.minVolumeSize;
+        return ws * radius < minVolumeSize ? minVolumeSize / ws : radius;
+    }
+
+    getMinScale () {
+        const radius = this.collider.radius;
+        const ws = Math.abs(absMaxComponent(this._collider.node.worldScale));
+        const minVolumeSize = physics.config.minVolumeSize;
+        return ws * radius < minVolumeSize ? minVolumeSize / radius : ws;
     }
 }
