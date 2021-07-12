@@ -48,8 +48,10 @@ import {
     StencilOp,
     Color,
 } from './base/define';
+
+import { BSPool, DSSPool, RSPool } from '../renderer/core/memory-pools';
+
 export class RasterizerState {
-    protected _nativeObj;
     protected _isDiscard: boolean = false;
     protected _polygonMode: PolygonMode = PolygonMode.FILL;
     protected _shadeModel: ShadeModel = ShadeModel.GOURAND;
@@ -62,6 +64,8 @@ export class RasterizerState {
     protected _isDepthClip: boolean = true;
     protected _isMultisample: boolean = false;
     protected _lineWidth: number = 1.0;
+    protected _nativeObj;
+
     constructor (
         isDiscard: boolean = false,
         polygonMode: PolygonMode = PolygonMode.FILL,
@@ -76,7 +80,7 @@ export class RasterizerState {
         isMultisample: boolean = false,
         lineWidth: number = 1.0,
     ) {
-        this._nativeObj = new gfx.RasterizerState();
+        this._nativeObj = RSPool.alloc(null);
         this.assignProperties(isDiscard, polygonMode, shadeModel, cullMode, isFrontFaceCCW,
             depthBiasEnabled, depthBias, depthBiasClamp, depthBiasSlop, isDepthClip, isMultisample, lineWidth);
     }
@@ -168,7 +172,10 @@ export class RasterizerState {
     }
 
     public destroy () {
-        this._nativeObj = null;
+        if (this._nativeObj) {
+            RSPool.free(this._nativeObj);
+            this._nativeObj = null;
+        }
     }
 
     private assignProperties (
@@ -205,7 +212,6 @@ export class RasterizerState {
  * @zh GFX 深度模板状态。
  */
 export class DepthStencilState {
-    protected _nativeObj;
     protected _depthTest: boolean = true;
     protected _depthWrite: boolean = true;
     protected _depthFunc: ComparisonFunc = ComparisonFunc.LESS;
@@ -225,6 +231,8 @@ export class DepthStencilState {
     protected _stencilZFailOpBack: StencilOp = StencilOp.KEEP;
     protected _stencilPassOpBack: StencilOp = StencilOp.KEEP;
     protected _stencilRefBack: number = 1;
+    protected _nativeObj;
+
     constructor (
         depthTest: boolean = true,
         depthWrite: boolean = true,
@@ -246,7 +254,7 @@ export class DepthStencilState {
         stencilPassOpBack: StencilOp = StencilOp.KEEP,
         stencilRefBack: number = 1,
     ) {
-        this._nativeObj = new gfx.DepthStencilState();
+        this._nativeObj = DSSPool.alloc(null);
         this.assignProperties(depthTest, depthWrite, depthFunc, stencilTestFront, stencilFuncFront, stencilReadMaskFront,
             stencilWriteMaskFront, stencilFailOpFront, stencilZFailOpFront, stencilPassOpFront, stencilRefFront,
             stencilTestBack, stencilFuncBack, stencilReadMaskBack, stencilWriteMaskBack, stencilFailOpBack,
@@ -361,6 +369,9 @@ export class DepthStencilState {
         this._nativeObj.stencilRefBack = val;
     }
 
+    public initialize () {
+    }
+
     public reset () {
         this.assignProperties(true, true, ComparisonFunc.LESS, false, ComparisonFunc.ALWAYS, 0xffff, 0xffff, StencilOp.KEEP,
             StencilOp.KEEP, StencilOp.KEEP, 1, false, ComparisonFunc.ALWAYS, 0xffff, 0xffff, StencilOp.KEEP, StencilOp.KEEP, StencilOp.KEEP, 1);
@@ -375,7 +386,10 @@ export class DepthStencilState {
     }
 
     public destroy () {
-        this._nativeObj = null;
+        if (this._nativeObj) {
+            DSSPool.free(this._nativeObj);
+            this._nativeObj = null;
+        }
     }
 
     private assignProperties (
@@ -556,11 +570,15 @@ function watchArrayElementsField<S, T> (self: S, list: T[], eleField: string, ca
 
 
 export class BlendState {
-    private targets: BlendTarget[];
-    private _blendColor: Color;
+    protected targets: BlendTarget[];
+    protected _blendColor: Color;
     protected _nativeObj;
     protected _isA2C: boolean = false;
     protected _isIndepend: boolean = false;
+
+    get native () {
+        return this._nativeObj;
+    }
 
     private _setTargets (targets: BlendTarget[]) {
         this.targets = targets;
@@ -579,17 +597,13 @@ export class BlendState {
         this._nativeObj.targets = nativeTars;
     }
 
-    get native () {
-        return this._nativeObj;
-    }
-
     constructor (
         isA2C: boolean = false,
         isIndepend: boolean = false,
         blendColor: Color = new Color(),
         targets: BlendTarget[] = [new BlendTarget()],
     ) {
-        this._nativeObj = new gfx.BlendState();
+        this._nativeObj = BSPool.alloc(null);
         this._setTargets(targets);
         this.blendColor = blendColor;
         this.isA2c = isA2C;
@@ -653,7 +667,10 @@ export class BlendState {
             this.targets[i].destroy();
         }
         this.targets = null;
-        this._nativeObj = null;
+        if (this._nativeObj) {
+            BSPool.free(this._nativeObj);
+            this._nativeObj = null;
+        }
     }
 }
 

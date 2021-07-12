@@ -30,6 +30,7 @@
 import { BufferUsageBit, MemoryUsageBit, InputAssemblerInfo, Attribute, Buffer, BufferInfo, InputAssembler } from '../../core/gfx';
 import { Batcher2D } from './batcher-2d';
 import { getComponentPerVertex } from './vertex-format';
+import { IAPool } from '../../core/renderer';
 
 export class MeshBuffer {
     public static OPACITY_OFFSET = 8;
@@ -164,7 +165,7 @@ export class MeshBuffer {
         this._indexBuffer = null!;
 
         for (let i = 0; i < this._hInputAssemblers.length; i++) {
-            this._hInputAssemblers[i].destroy();
+            IAPool.free(this._hInputAssemblers[i]);
         }
         this._hInputAssemblers.length = 0;
     }
@@ -176,7 +177,7 @@ export class MeshBuffer {
         }
 
         if (this._hInputAssemblers.length <= this._nextFreeIAHandle) {
-            this._hInputAssemblers.push(this._batcher.device.createInputAssembler(this._iaInfo));
+            this._hInputAssemblers.push(IAPool.alloc(this._batcher.device, this._iaInfo));
         }
 
         const ia = this._hInputAssemblers[this._nextFreeIAHandle++];

@@ -50,6 +50,7 @@ import { sys } from '../../core/platform/sys';
 import { Mat4 } from '../../core/math';
 import { value } from '../../core/utils/js-typed';
 import { NativeDrawBatch2D } from '../../core/renderer/scene';
+import { DSPool } from '../../core/renderer';
 
 const _dsInfo = new DescriptorSetInfo(null!);
 const m4_1 = new Mat4();
@@ -710,12 +711,12 @@ class LocalDescriptorSet  {
         this._textureHash = batch.textureHash;
         this._samplerHash = batch.samplerHash;
         _dsInfo.layout = batch.passes[0].localSetLayout;
-        this._descriptorSet =  device.createDescriptorSet(_dsInfo);
-        this._descriptorSet!.bindBuffer(UBOLocal.BINDING, this._localBuffer!);
+        this._descriptorSet =  DSPool.alloc(device, _dsInfo);
+        this._descriptorSet.bindBuffer(UBOLocal.BINDING, this._localBuffer!);
         const binding = ModelLocalBindings.SAMPLER_SPRITE;
-        this._descriptorSet!.bindTexture(binding, batch.texture!);
-        this._descriptorSet!.bindSampler(binding, batch.sampler!);
-        this._descriptorSet!.update();
+        this._descriptorSet.bindTexture(binding, batch.texture!);
+        this._descriptorSet.bindSampler(binding, batch.sampler!);
+        this._descriptorSet.update();
         this._transformUpdate = true;
     }
 
@@ -748,7 +749,7 @@ class LocalDescriptorSet  {
         }
 
         if (this._descriptorSet) {
-            this._descriptorSet.destroy();
+            DSPool.free(this._descriptorSet);
             this._descriptorSet = null;
         }
 
@@ -810,7 +811,7 @@ class DescriptorSetCache {
             } else {
                 const device = legacyCC.director.root.device;
                 _dsInfo.layout = batch.passes[0].localSetLayout;
-                const descriptorSet = root.device.createDescriptorSet(_dsInfo);
+                const descriptorSet = DSPool.alloc(root.device, _dsInfo);
                 const binding = ModelLocalBindings.SAMPLER_SPRITE;
                 descriptorSet.bindTexture(binding, batch.texture!);
                 descriptorSet.bindSampler(binding, batch.sampler!);
@@ -821,7 +822,7 @@ class DescriptorSetCache {
                 } else {
                     this._descriptorSetCache.set(batch.textureHash, new Map([[batch.samplerHash, descriptorSet]]));
                 }
-                return descriptorSet as DescriptorSet;
+                return descriptorSet;
             }
         }
     }

@@ -210,11 +210,7 @@ export const NativeSubModel: Constructor<{
 export type NativeSubModel = InstanceType<typeof NativeSubModel>;
 
 export const NativeDrawBatch2D: Constructor<{
-    visFlags: number;
-    inputAssembler: InputAssembler | null;
-    descriptorSet: DescriptorSet | null;
-    passes: NativePass[];
-    shaders: Shader[];
+    initWithData (data: TypedArray): void;
 }> = null!;
 export type NativeDrawBatch2D = InstanceType<typeof NativeDrawBatch2D>;
 

@@ -28,8 +28,13 @@
  * @hidden
  */
 
-import { DEBUG } from 'internal:constants';
-import { NativeBufferPool } from './native-pools';
+import { DEBUG, JSB } from 'internal:constants';
+import { NativeBufferPool, NativeObjectPool, NativeBlendState, NativeDepthStencilState, NativeRasterizerState } from './native-pools';
+import {
+    DescriptorSetInfo,
+    Device, DescriptorSet, ShaderInfo, Shader, InputAssemblerInfo, InputAssembler,
+} from '../../gfx';
+import { NativePass } from '../scene/native-scene';
 
 const contains = (a: number[], t: number) => {
     for (let i = 0; i < a.length; ++i) {
@@ -37,6 +42,8 @@ const contains = (a: number[], t: number) => {
     }
     return false;
 };
+
+type PoolType = BufferPoolType | ObjectPoolType;
 
 interface IMemoryPool<P extends PoolType> {
     free (handle: IHandle<P>): void;
@@ -82,13 +89,12 @@ class BufferPool<P extends PoolType, E extends BufferManifest> implements IMemor
     private _hasFloat32 = false;
     private _nativePool: NativeBufferPool;
 
-    constructor (poolType: P, dataType: BufferDataTypeManifest<E>, dataMembers: BufferDataMembersManifest<E>, enumType: E, entryBits = 8) {
+    constructor (poolType: P, dataType: BufferDataTypeManifest<E>, dataMembers: BufferDataMembersManifest<E>, enumType: E, bytesPerElement: number, entryBits = 8) {
         this._elementCount = enumType.COUNT;
         this._entryBits = entryBits;
         this._dataType = dataType;
         this._dataMembers = dataMembers;
 
-        const bytesPerElement = 4;
         this._stride = bytesPerElement * this._elementCount;
         this._entriesPerChunk = 1 << entryBits;
         this._entryMask = this._entriesPerChunk - 1;
@@ -191,16 +197,17 @@ class BufferPool<P extends PoolType, E extends BufferManifest> implements IMemor
     }
 }
 
-export enum PoolType {
+export enum BufferPoolType {
     // buffers
     NODE,
     PASS,
-    AABB
+    AABB,
+    DRAW_BATCH
 }
 
 export const NULL_HANDLE = 0 as unknown as IHandle<any>;
 
-export type NodeHandle = IHandle<PoolType.NODE>;
+export type NodeBufferHandle = IHandle<BufferPoolType.NODE>;
 
 export enum NodeView {
     DIRTY_FLAG,
@@ -244,9 +251,9 @@ const NodeViewDataMembers: BufferDataMembersManifest<typeof NodeView> = {
     [NodeView.COUNT]: 1,
 };
 
-export const NodePool = new BufferPool<PoolType.NODE, typeof NodeView>(PoolType.NODE, NodeViewDataType, NodeViewDataMembers, NodeView);
+export const NodePool = new BufferPool<BufferPoolType.NODE, typeof NodeView>(BufferPoolType.NODE, NodeViewDataType, NodeViewDataMembers, NodeView, 4);
 
-export type PassHandle = IHandle<PoolType.PASS>;
+export type PassBufferHandle = IHandle<BufferPoolType.PASS>;
 
 export enum PassView {
     PRIORITY,
@@ -256,6 +263,11 @@ export enum PassView {
     BATCHING_SCHEME,
     DYNAMIC_STATE,
     HASH,
+    ROOT_BUFFER_DIRTY,
+    DESCRIPTOR_SET,
+    BLEND_STATE,
+    DEPTH_STENCIL_STATE,
+    RASTERIZER_STATE,
     COUNT
 }
 
@@ -267,6 +279,11 @@ const PassViewDataType: BufferDataTypeManifest<typeof PassView> = {
     [PassView.BATCHING_SCHEME]: BufferDataType.UINT32,
     [PassView.DYNAMIC_STATE]: BufferDataType.UINT32,
     [PassView.HASH]: BufferDataType.UINT32,
+    [PassView.ROOT_BUFFER_DIRTY]: BufferDataType.UINT32,
+    [PassView.DESCRIPTOR_SET]: BufferDataType.UINT32,
+    [PassView.BLEND_STATE]: BufferDataType.UINT32,
+    [PassView.DEPTH_STENCIL_STATE]: BufferDataType.UINT32,
+    [PassView.RASTERIZER_STATE]: BufferDataType.UINT32,
     [PassView.COUNT]: BufferDataType.NEVER,
 };
 
@@ -277,13 +294,18 @@ const PassViewDataMembers: BufferDataMembersManifest<typeof PassView> = {
     [PassView.PRIMITIVE]: PassView.BATCHING_SCHEME - PassView.PRIMITIVE,
     [PassView.BATCHING_SCHEME]: PassView.DYNAMIC_STATE - PassView.BATCHING_SCHEME,
     [PassView.DYNAMIC_STATE]: PassView.HASH - PassView.DYNAMIC_STATE,
-    [PassView.HASH]: PassView.COUNT - PassView.HASH,
+    [PassView.HASH]: PassView.ROOT_BUFFER_DIRTY - PassView.HASH,
+    [PassView.ROOT_BUFFER_DIRTY]: PassView.DESCRIPTOR_SET - PassView.ROOT_BUFFER_DIRTY,
+    [PassView.DESCRIPTOR_SET]: PassView.BLEND_STATE - PassView.DESCRIPTOR_SET,
+    [PassView.BLEND_STATE]: PassView.DEPTH_STENCIL_STATE - PassView.BLEND_STATE,
+    [PassView.DEPTH_STENCIL_STATE]: PassView.RASTERIZER_STATE - PassView.DEPTH_STENCIL_STATE,
+    [PassView.RASTERIZER_STATE]: PassView.COUNT - PassView.RASTERIZER_STATE,
     [PassView.COUNT]: 1,
 };
 
-export const PassPool = new BufferPool<PoolType.PASS, typeof PassView>(PoolType.PASS, PassViewDataType, PassViewDataMembers, PassView);
+export const PassBufferPool = new BufferPool<BufferPoolType.PASS, typeof PassView>(BufferPoolType.PASS, PassViewDataType, PassViewDataMembers, PassView, 4);
 
-export type AABBHandle = IHandle<PoolType.AABB>;
+export type AABBHandle = IHandle<BufferPoolType.AABB>;
 
 export enum AABBView {
     CENTER, // Vec3
@@ -303,4 +325,153 @@ const AABBViewDataMembers: BufferDataMembersManifest<typeof AABBView> = {
     [AABBView.COUNT]: 1,
 };
 
-export const AABBPool = new BufferPool<PoolType.AABB, typeof AABBView>(PoolType.AABB, AABBViewDataType, AABBViewDataMembers, AABBView);
+export const AABBPool = new BufferPool<BufferPoolType.AABB, typeof AABBView>(BufferPoolType.AABB, AABBViewDataType, AABBViewDataMembers, AABBView, 4);
+
+export type DrawBatchBufferHandle = IHandle<BufferPoolType.DRAW_BATCH>;
+
+export enum DrawBatchView {
+    VIS_FLAGS,
+    PASS_COUNT,
+    DESCRIPTOR_SET,
+    INPUT_ASSEMBLER,
+    PASSES,
+    SHADERS = 12,
+    COUNT = 20
+}
+
+const DrawBatchViewDataType: BufferDataTypeManifest<typeof DrawBatchView> = {
+    [DrawBatchView.VIS_FLAGS]: BufferDataType.UINT32,
+    [DrawBatchView.PASS_COUNT]: BufferDataType.UINT32,
+    [DrawBatchView.DESCRIPTOR_SET]: BufferDataType.UINT32,
+    [DrawBatchView.INPUT_ASSEMBLER]: BufferDataType.UINT32,
+    [DrawBatchView.PASSES]: BufferDataType.UINT32,
+    [DrawBatchView.SHADERS]: BufferDataType.UINT32,
+    [DrawBatchView.COUNT]: BufferDataType.NEVER,
+};
+
+const DrawBatchViewDataMembers: BufferDataMembersManifest<typeof DrawBatchView> = {
+    [DrawBatchView.VIS_FLAGS]: DrawBatchView.PASS_COUNT - DrawBatchView.VIS_FLAGS,
+    [DrawBatchView.PASS_COUNT]: DrawBatchView.DESCRIPTOR_SET - DrawBatchView.PASS_COUNT,
+    [DrawBatchView.DESCRIPTOR_SET]: DrawBatchView.INPUT_ASSEMBLER - DrawBatchView.DESCRIPTOR_SET,
+    [DrawBatchView.INPUT_ASSEMBLER]: DrawBatchView.PASSES - DrawBatchView.INPUT_ASSEMBLER,
+    [DrawBatchView.PASSES]: DrawBatchView.SHADERS - DrawBatchView.PASSES,
+    [DrawBatchView.SHADERS]: DrawBatchView.COUNT - DrawBatchView.SHADERS,
+    [DrawBatchView.COUNT]: 1,
+};
+
+export const DrawBatchPool = new BufferPool<BufferPoolType.DRAW_BATCH, typeof DrawBatchView>(BufferPoolType.DRAW_BATCH, DrawBatchViewDataType, DrawBatchViewDataMembers, DrawBatchView, 4);
+
+export enum ObjectPoolType {
+    // buffers
+    PASS,
+    SHADER,
+    INPUT_ASSEMBLER,
+    DESCRIPTOR_SET,
+    BLEND_STATE,
+    DEPTH_STENCIL_STATE,
+    RASTERIZER_STATE
+}
+
+interface IObjectPool<P extends ObjectPoolType> {
+    free (obj: any): void;
+}
+
+// Object Pool
+export class ObjectPool<T, P extends ObjectPoolType, A extends any[]> implements IObjectPool<P> {
+    private _ctor: (args: A, obj?: T) => T;
+    private _dtor?: (obj: T) => T | undefined;
+    private _indexMask: number;
+    private _poolFlag: number;
+    private _array: (T | undefined)[] = [];
+    private _handles: Map<T, IHandle<P>> = new Map<T, IHandle<P>>();
+    private _freelist: number[] = [];
+
+    private _nativePool: NativeObjectPool<T>;
+
+    constructor (poolType: P, ctor: (args: A, obj?: T) => T, dtor?: (obj: T) => T | undefined) {
+        this._ctor = ctor;
+        if (dtor) { this._dtor = dtor; }
+        this._poolFlag = 1 << 29;
+        this._indexMask = ~this._poolFlag;
+        this._nativePool = new NativeObjectPool(poolType, this._array);
+    }
+
+    public alloc (...args: A): T {
+        const freelist = this._freelist;
+        let i = -1;
+        if (freelist.length) {
+            i = freelist[freelist.length - 1];
+            freelist.length--;
+            this._array[i] = this._ctor(arguments as unknown as A, this._array[i]);
+        } else {
+            i = this._array.length;
+            const obj = this._ctor(arguments as unknown as A);
+            this._array.push(obj);
+        }
+        const handle = i + this._poolFlag as unknown as IHandle<P>;
+        this._nativePool.bind(i, this._array[i] as T, handle);
+        this._handles.set(this._array[i] as T, handle);
+        return this._array[i] as T; // guarantees the handle is always not zero
+    }
+
+    public get<R extends T> (handle: IHandle<P>): R {
+        const index = this._indexMask & handle as unknown as number;
+        if (DEBUG && (!handle || index < 0 || index >= this._array.length || this._freelist.find((n) => n === index))) {
+            console.warn('invalid object pool handle');
+            return null!;
+        }
+        return this._array[index] as R;
+    }
+
+    public getHandle<R extends T> (obj: T): IHandle<P> {
+        const handle = this._handles.get(obj);
+        if (DEBUG && (!handle)) {
+            console.warn('invalid object get pool handle');
+            return 0 as unknown as IHandle<P>;
+        }
+        return handle as unknown as IHandle<P>;
+    }
+
+    public free (obj: T): void {
+        const handle = this._handles.get(obj);
+        this._handles.delete(obj);
+        const index = this._indexMask & handle as unknown as number;
+        if (DEBUG && (!handle || index < 0 || index >= this._array.length || this._freelist.find((n) => n === index))) {
+            console.warn('invalid object pool handle');
+            return;
+        }
+        if (this._dtor) { this._array[index] = this._dtor(this._array[index]!); }
+        this._freelist.push(index);
+    }
+}
+
+export const PassPool = new ObjectPool(ObjectPoolType.PASS,
+    (args: [device: Device], obj?: NativePass) => (
+        obj || new NativePass()),
+    (obj: NativePass) => (obj));
+export const ShaderPool = new ObjectPool(ObjectPoolType.SHADER,
+    (args: [device: Device, info: ShaderInfo], obj?: Shader) => (
+        obj ? (obj.initialize(args[1]), obj) : args[0].createShader(args[1])),
+    (obj: Shader) => (obj && obj.destroy(), obj));
+export const IAPool = new ObjectPool(ObjectPoolType.INPUT_ASSEMBLER,
+    (args: [device: Device, info: InputAssemblerInfo], obj?: InputAssembler) => (
+        obj ? (obj.initialize(args[1]), obj) : args[0].createInputAssembler(args[1])),
+    (obj: InputAssembler) => (obj && obj.destroy(), obj));
+export const DSPool = new ObjectPool(ObjectPoolType.DESCRIPTOR_SET,
+    (args: [device: Device, info: DescriptorSetInfo], obj?: DescriptorSet) => (
+        obj ? (obj.initialize(args[1]), obj) : args[0].createDescriptorSet(args[1])),
+    (obj: DescriptorSet) => (obj && obj.destroy(), obj));
+
+// only for native
+export const BSPool = new ObjectPool(ObjectPoolType.BLEND_STATE,
+    (args: [device: Device], obj?: NativeBlendState) => (
+        obj || new NativeBlendState()),
+    (obj: NativeBlendState) => (obj));
+export const DSSPool = new ObjectPool(ObjectPoolType.DEPTH_STENCIL_STATE,
+    (args: [device: Device], obj?: NativeDepthStencilState) => (
+        obj || new NativeDepthStencilState()),
+    (obj: NativeDepthStencilState) => (obj));
+export const RSPool = new ObjectPool(ObjectPoolType.RASTERIZER_STATE,
+    (args: [device: Device], obj?: NativeRasterizerState) => (
+        obj || new NativeRasterizerState()),
+    (obj: NativeRasterizerState) => (obj));

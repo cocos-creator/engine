@@ -26,6 +26,19 @@
 
 declare const jsb: any;
 
+class ObjectPool extends jsb.NativeObjectPool {
+    public bind (index, object, nativeHandle) {
+        object.nativeHandle = 
+        super.bind(index, object);
+    }
+}
+
 export const NativeBufferPool = jsb.NativeBufferPool;
-export const NativeObjectPool = jsb.NativeObjectPool;
+export const NativeObjectPool = ObjectPool;
 export const NativeBufferAllocator = jsb.NativeBufferAllocator;
+
+declare const gfx: any;
+
+export const NativeBlendState = gfx.BlendState;
+export const NativeDepthStencilState = gfx.DepthStencilState;
+export const NativeRasterizerState = gfx.RasterizerState;

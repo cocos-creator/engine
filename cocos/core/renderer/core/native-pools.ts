@@ -39,7 +39,7 @@ export class NativeBufferPool {
 
 export class NativeObjectPool<T> {
     constructor (dataType: number, array: T[]) {}
-    public bind (index: number, obj: T) {}
+    public bind (index: number, obj: T, handle: any) {}
 }
 
 export class NativeBufferAllocator {
@@ -47,3 +47,15 @@ export class NativeBufferAllocator {
     public alloc (index: number, bytes: number) { return new ArrayBuffer(bytes); }
     public free (index: number) {}
 }
+
+export const NativeBlendState: Constructor<{
+}> = null!;
+export type NativeBlendState = InstanceType<typeof NativeBlendState>;
+
+export const NativeDepthStencilState: Constructor<{
+}> = null!;
+export type NativeDepthStencilState = InstanceType<typeof NativeDepthStencilState>;
+
+export const NativeRasterizerState: Constructor<{
+}> = null!;
+export type NativeRasterizerState = InstanceType<typeof NativeRasterizerState>;

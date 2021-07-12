@@ -37,6 +37,7 @@ import { PipelineLayoutInfo, Device, Attribute, UniformBlock, ShaderInfo,
     Uniform, ShaderStage, DESCRIPTOR_SAMPLER_TYPE, DESCRIPTOR_BUFFER_TYPE,
     DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutInfo,
     DescriptorType, GetTypeSize, ShaderStageFlagBit, API, UniformSamplerTexture, PipelineLayout, Shader } from '../../gfx';
+import { ShaderPool } from './memory-pools';
 
 const _dsLayoutInfo = new DescriptorSetLayoutInfo();
 
@@ -424,7 +425,7 @@ class ProgramLib {
         const instanceName = getShaderInstanceName(name, macroArray);
         const shaderInfo = new ShaderInfo(instanceName, tmplInfo.gfxStages, attributes, tmplInfo.gfxBlocks);
         shaderInfo.samplerTextures = tmplInfo.gfxSamplerTextures;
-        return this._cache[key] = device.createShader(shaderInfo);
+        return this._cache[key] = ShaderPool.alloc(device, shaderInfo);
     }
 }
 

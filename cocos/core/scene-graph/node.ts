@@ -38,7 +38,7 @@ import { eventManager } from '../platform/event-manager/event-manager';
 import { legacyCC } from '../global-exports';
 import { BaseNode, TRANSFORM_ON } from './base-node';
 import { Mat3, Mat4, Quat, Vec3 } from '../math';
-import { NULL_HANDLE, NodePool, NodeView, NodeHandle  } from '../renderer/core/memory-pools';
+import { NULL_HANDLE, NodePool, NodeView, NodeBufferHandle  } from '../renderer/core/memory-pools';
 import { NodeSpace, TransformBit } from './node-enum';
 import { applyMountedChildren, applyMountedComponents, applyRemovedComponents,
     applyPropertyOverrides, applyTargetOverrides, createNodeWithPrefab, generateTargetMap } from '../utils/prefab/utils';
@@ -199,7 +199,7 @@ export class Node extends BaseNode {
     protected _dirtyFlags = TransformBit.NONE; // does the world transform need to update?
 
     protected _eulerDirty = false;
-    protected _nodeHandle: NodeHandle = NULL_HANDLE;
+    protected _nodeHandle: NodeBufferHandle = NULL_HANDLE;
     protected declare _hasChangedFlagsChunk: Uint32Array; // has the transform been updated in this frame?
     protected declare _hasChangedFlagsOffset: number;
     protected declare _nativeObj: NativeNode | null;
@@ -760,11 +760,11 @@ export class Node extends BaseNode {
 
     public setPosition (val: Readonly<Vec3> | number, y?: number, z?: number): void {
         if (y === undefined && z === undefined) {
-            Vec3.copy(this._lpos, val as Vec3);
+            this._lpos.set(val as Vec3);
         } else if (z === undefined) {
-            Vec3.set(this._lpos, val as number, y!, this._lpos.z);
+            this._lpos.set(val as number, y, this._lpos.z);
         } else {
-            Vec3.set(this._lpos, val as number, y!, z);
+            this._lpos.set(val as number, y, z);
         }
 
         this.invalidateChildren(TransformBit.POSITION);

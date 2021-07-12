@@ -36,6 +36,7 @@ import { Shadows } from './shadows';
 import { NativePass, NativeSubModel } from './native-scene';
 import { getPhaseID } from '../../pipeline/pass-phase';
 import { genSamplerHash, samplerLib } from '../core/sampler-lib';
+import { IAPool, DSPool } from '../core/memory-pools';
 
 const _dsInfo = new DescriptorSetInfo(null!);
 const MAX_PASS_COUNT = 8;
@@ -55,23 +56,29 @@ export class SubModel {
     protected declare _nativeObj: NativeSubModel | null;
 
     private _destroyDescriptorSet () {
-        this._descriptorSet!.destroy();
+        if (this._descriptorSet) {
+            DSPool.free(this._descriptorSet);
+            this._descriptorSet = null;
+        }
+
         if (JSB) {
             this._nativeObj!.setDescriptorSet(null);
         }
-        this._descriptorSet = null;
     }
 
     private _destroyInputAssembler () {
-        this._inputAssembler!.destroy();
+        if (this._inputAssembler) {
+            IAPool.free(this._inputAssembler);
+            this._inputAssembler = null;
+        }
+
         if (JSB) {
             this._nativeObj!.setInputAssembler(null);
         }
-        this._inputAssembler = null;
     }
 
     private _createDescriptorSet (descInfo: DescriptorSetInfo) {
-        this._descriptorSet = this._device!.createDescriptorSet(descInfo);
+        this._descriptorSet = DSPool.alloc(this._device!, descInfo);
         if (JSB) {
             this._nativeObj!.setDescriptorSet(this._descriptorSet);
         }
@@ -144,8 +151,8 @@ export class SubModel {
         return this._planarShader;
     }
 
-    private _setInputAssembler (iaInfo: InputAssemblerInfo) {
-        this._inputAssembler = this._device!.createInputAssembler(iaInfo);
+    private _createInputAssembler (iaInfo: InputAssemblerInfo) {
+        this._inputAssembler = IAPool.alloc(this._device!, iaInfo);
         if (JSB) {
             this._nativeObj!.setInputAssembler(this._inputAssembler);
         }
@@ -172,7 +179,7 @@ export class SubModel {
         this._device = legacyCC.director.root.device as Device;
         _dsInfo.layout = passes[0].localSetLayout;
         this._init();
-        this._setInputAssembler(subMesh.iaInfo);
+        this._createInputAssembler(subMesh.iaInfo);
         this._createDescriptorSet(_dsInfo);
         this._setSubMesh(subMesh);
         this._patches = patches;

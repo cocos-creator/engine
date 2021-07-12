@@ -49,7 +49,7 @@ import {
 import { RenderPassStage, RenderPriority } from '../../pipeline/define';
 import { NativePass } from '../scene/native-scene';
 import { errorID } from '../../platform/debug';
-import { PassHandle, PassView, NULL_HANDLE, PassPool } from './memory-pools';
+import { PassBufferHandle, PassView, NULL_HANDLE, PassBufferPool, PassPool, BSPool, RSPool, DSPool, DSSPool } from './memory-pools';
 
 export interface IPassInfoFull extends IPassInfo {
     // generated part
@@ -189,7 +189,7 @@ export class Pass {
     protected _shaderInfo: IProgramInfo = null!;
     protected _defines: MacroRecord = {};
     protected _properties: Record<string, IPropertyInfo> = {};
-    protected _shader: Shader | null = null
+    protected _shader: Shader | null = null;
     protected _bs: BlendState = new BlendState();
     protected _dss: DepthStencilState = new DepthStencilState();
     protected _rs: RasterizerState = new RasterizerState();
@@ -204,7 +204,7 @@ export class Pass {
     protected _root: Root;
     protected _device: Device;
     // native data
-    protected _passHandle: PassHandle = NULL_HANDLE;
+    protected _passHandle: PassBufferHandle = NULL_HANDLE;
     protected declare _nativePriority: Uint32Array;
     protected declare _nativeStage: Uint32Array;
     protected declare _nativePhase: Uint32Array;
@@ -212,6 +212,11 @@ export class Pass {
     protected declare _nativeBatchingScheme: Uint32Array;
     protected declare _nativeDynamicStates: Uint32Array;
     protected declare _nativeHash: Uint32Array;
+    protected declare _nativeBufferDirty: Uint32Array;
+    protected declare _nativeBs: Uint32Array;
+    protected declare _nativeDss: Uint32Array;
+    protected declare _nativeRs: Uint32Array;
+    protected declare _nativeDs: Uint32Array;
     protected declare _nativeObj: NativePass | null;
 
     private  _rootBufferDirty = false;
@@ -368,7 +373,7 @@ export class Pass {
     protected _setRootBufferDirty (val: boolean) {
         this._rootBufferDirty = val;
         if (JSB) {
-            this._nativeObj!.setRootBufferDirty(val);
+            this._nativeBufferDirty[0] = val as unknown as number;
         }
     }
 
@@ -394,25 +399,33 @@ export class Pass {
 
     private _initNative () {
         if (JSB && !this._nativeObj) {
-            this._nativeObj = new NativePass();
-            this._passHandle = PassPool.alloc();
-            this._nativePriority = PassPool.getTypedArray(this._passHandle, PassView.PRIORITY) as Uint32Array;
-            this._nativeStage = PassPool.getTypedArray(this._passHandle, PassView.STAGE) as Uint32Array;
-            this._nativePhase = PassPool.getTypedArray(this._passHandle, PassView.PHASE) as Uint32Array;
-            this._nativePrimitive = PassPool.getTypedArray(this._passHandle, PassView.PRIMITIVE) as Uint32Array;
-            this._nativeBatchingScheme = PassPool.getTypedArray(this._passHandle, PassView.BATCHING_SCHEME) as Uint32Array;
-            this._nativeDynamicStates = PassPool.getTypedArray(this._passHandle, PassView.DYNAMIC_STATE) as Uint32Array;
-            this._nativeHash = PassPool.getTypedArray(this._passHandle, PassView.HASH) as Uint32Array;
-            this._nativeObj.initWithData(PassPool.getBuffer(this._passHandle));
+            this._nativeObj = PassPool.alloc(this._device);
+            this._passHandle = PassBufferPool.alloc();
+            this._nativePriority = PassBufferPool.getTypedArray(this._passHandle, PassView.PRIORITY) as Uint32Array;
+            this._nativeStage = PassBufferPool.getTypedArray(this._passHandle, PassView.STAGE) as Uint32Array;
+            this._nativePhase = PassBufferPool.getTypedArray(this._passHandle, PassView.PHASE) as Uint32Array;
+            this._nativePrimitive = PassBufferPool.getTypedArray(this._passHandle, PassView.PRIMITIVE) as Uint32Array;
+            this._nativeBatchingScheme = PassBufferPool.getTypedArray(this._passHandle, PassView.BATCHING_SCHEME) as Uint32Array;
+            this._nativeDynamicStates = PassBufferPool.getTypedArray(this._passHandle, PassView.DYNAMIC_STATE) as Uint32Array;
+            this._nativeHash = PassBufferPool.getTypedArray(this._passHandle, PassView.HASH) as Uint32Array;
+            this._nativeBufferDirty = PassBufferPool.getTypedArray(this._passHandle, PassView.ROOT_BUFFER_DIRTY) as Uint32Array;
+            this._nativeDs = PassBufferPool.getTypedArray(this._passHandle, PassView.DESCRIPTOR_SET) as Uint32Array;
+            this._nativeBs = PassBufferPool.getTypedArray(this._passHandle, PassView.BLEND_STATE) as Uint32Array;
+            this._nativeDss = PassBufferPool.getTypedArray(this._passHandle, PassView.DEPTH_STENCIL_STATE) as Uint32Array;
+            this._nativeRs = PassBufferPool.getTypedArray(this._passHandle, PassView.RASTERIZER_STATE) as Uint32Array;
+            this._nativeObj.initWithData(PassBufferPool.getBuffer(this._passHandle));
         }
     }
 
     private _destroy () {
         if (JSB) {
-            this._nativeObj = null;
-
             if (this._passHandle) {
-                PassPool.free(this._passHandle);
+                PassBufferPool.free(this._passHandle);
+            }
+
+            if (this._nativeObj) {
+                PassPool.free(this._nativeObj);
+                this._nativeObj = null;
             }
         }
     }
@@ -432,8 +445,11 @@ export class Pass {
             this._rootBuffer.destroy();
             this._rootBuffer = null;
         }
-
-        this._descriptorSet.destroy();
+        // textures are reused
+        if (this._descriptorSet) {
+            DSPool.free(this._descriptorSet);
+            this._descriptorSet = null!;
+        }
         this._rs.destroy();
         this._dss.destroy();
         this._bs.destroy();
@@ -615,7 +631,10 @@ export class Pass {
         this._descriptorSet = ds;
 
         if (JSB) {
-            this._nativeObj!.setState(this._bs.native, this._dss.native, this._rs.native, ds);
+            this._nativeBs[0] = BSPool.getHandle(this._bs.native) as unknown as number;
+            this._nativeDss[0] = DSSPool.getHandle(this._dss.native) as unknown as number;
+            this._nativeRs[0] = RSPool.getHandle(this._rs.native) as unknown as number;
+            this._nativeDs[0] = DSPool.getHandle(ds) as unknown as number;
         }
     }
 
@@ -639,7 +658,7 @@ export class Pass {
 
         // init descriptor set
         _dsInfo.layout = programLib.getDescriptorSetLayout(this._device, info.program);
-        this._descriptorSet = this._device.createDescriptorSet(_dsInfo);
+        this._descriptorSet = DSPool.alloc(this._device, _dsInfo);
         // pipeline state
         this._setNativeState(this._bs, this._dss, this._rs, this._descriptorSet);
 
