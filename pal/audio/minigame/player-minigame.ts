@@ -13,13 +13,7 @@ export class OneShotAudioMinigame {
         return this._onPlayCb;
     }
     set onPlay (cb) {
-        if (this._onPlayCb) {
-            this._innerAudioContext.offPlay(this._onPlayCb);
-        }
         this._onPlayCb = cb;
-        if (cb) {
-            this._innerAudioContext.onPlay(cb);
-        }
     }
 
     private _onEndCb?: () => void;
@@ -27,18 +21,19 @@ export class OneShotAudioMinigame {
         return this._onEndCb;
     }
     set onEnd (cb) {
-        if (this._onEndCb) {
-            this._innerAudioContext.offEnded(this._onEndCb);
-        }
         this._onEndCb = cb;
-        if (cb) {
-            this._innerAudioContext.onEnded(cb);
-        }
     }
 
     private constructor (nativeAudio: InnerAudioContext, volume: number) {
         this._innerAudioContext = nativeAudio;
         nativeAudio.volume = volume;
+        nativeAudio.onPlay(() => {
+            this._onPlayCb?.();
+        });
+        nativeAudio.onEnded(() => {
+            this._onEndCb?.();
+            nativeAudio.destroy();
+        });
     }
     public play (): void {
         this._innerAudioContext.play();
@@ -103,6 +98,7 @@ export class AudioPlayerMinigame implements OperationQueueable {
             ['Play', 'Pause', 'Stop', 'Seeked', 'Ended'].forEach((event) => {
                 this._offEvent(event);
             });
+            this._innerAudioContext.destroy();
             // @ts-expect-error Type 'undefined' is not assignable to type 'InnerAudioContext'
             this._innerAudioContext = undefined;
         }
