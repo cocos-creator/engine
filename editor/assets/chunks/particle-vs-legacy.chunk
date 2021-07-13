@@ -35,18 +35,21 @@ vec4 lpvs_main () {
     #endif
   #endif
 
+  #define INDENTIFY_NEG_QUAT 10.0
+
+  vec3 rotTmp = a_texCoord2;
+  float mulFactor = 1.0;
+  if (rotTmp.x > INDENTIFY_NEG_QUAT * 0.5) {
+      rotTmp.x -= INDENTIFY_NEG_QUAT;
+      mulFactor = -1.0;
+  }
+  vec4 rot = vec4(rotTmp, 0.0);
+  rot.w = mulFactor * sqrt(1.0 - rot.x * rot.x - rot.y * rot.y - rot.z * rot.z);
+
   #if CC_RENDER_MODE != RENDER_MODE_MESH
     vec2 cornerOffset = vec2((a_texCoord.xy - 0.5));
 
-    #if CC_RENDER_MODE == RENDER_MODE_BILLBOARD
-      vec3 rotEuler = a_texCoord2;
-    #elif CC_RENDER_MODE == RENDER_MODE_STRETCHED_BILLBOARD
-      vec3 rotEuler = vec3(0.);
-    #else
-      vec3 rotEuler = vec3(0., 0., a_texCoord2.z);
-    #endif
-
-    computeVertPos(pos, cornerOffset, quaternionFromEuler(rotEuler), compScale
+    computeVertPos(pos, cornerOffset, rot, compScale
     #if CC_RENDER_MODE == RENDER_MODE_BILLBOARD || CC_RENDER_MODE == RENDER_MODE_VERTICAL_BILLBOARD
       , cc_matViewInv
     #endif
@@ -61,8 +64,8 @@ vec4 lpvs_main () {
 
     color = a_color;
   #else
-    mat4 xformNoScale = matrixFromRT(quaternionFromEuler(a_texCoord2), pos.xyz);
-    mat4 xform = matFromRTS(quaternionFromEuler(a_texCoord2), pos.xyz, compScale);
+    mat4 xformNoScale = matrixFromRT(rot, pos.xyz);
+    mat4 xform = matFromRTS(rot, pos.xyz, compScale);
     pos = xform * vec4(a_texCoord3, 1);
     vec4 normal = xformNoScale * vec4(a_normal, 0);
     color = a_color * a_color1;

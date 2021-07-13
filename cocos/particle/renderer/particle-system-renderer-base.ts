@@ -34,6 +34,7 @@ import { legacyCC } from '../../core/global-exports';
 
 export interface IParticleSystemRenderer {
     onInit (ps: Component): void;
+    getInfo (): ParticleSystemRenderer;
     onEnable (): void;
     onDisable (): void;
     onDestroy (): void;
@@ -64,6 +65,10 @@ export abstract class ParticleSystemRendererBase implements IParticleSystemRende
 
     constructor (info: ParticleSystemRenderer) {
         this._renderInfo = info;
+    }
+
+    public getInfo () {
+        return this._renderInfo!;
     }
 
     public onInit (ps: Component) {
