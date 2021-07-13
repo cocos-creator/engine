@@ -196,7 +196,7 @@ var Component = cc.Class({
          */
         enabledInHierarchy: {
             get () {
-                return this._enabled && this.node._activeInHierarchy;
+                return this._enabled && this.node && this.node._activeInHierarchy;
             },
             visible: false
         },
