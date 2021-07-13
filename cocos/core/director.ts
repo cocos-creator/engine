@@ -39,7 +39,7 @@ import { CCObject } from './data/object';
 import { EventTarget } from './event/event-target';
 import { game, Game } from './game';
 import { v2, Vec2 } from './math';
-import eventManager from './platform/event-manager/event-manager';
+import { eventManager } from './platform/event-manager/event-manager';
 import { Root } from './root';
 import { Node, Scene } from './scene-graph';
 import { ComponentScheduler } from './scene-graph/component-scheduler';
@@ -48,6 +48,7 @@ import { Scheduler } from './scheduler';
 import { js } from './utils';
 import { legacyCC } from './global-exports';
 import { errorID, error, assertID, warnID } from './platform/debug';
+import inputManager from './platform/event-manager/input-manager';
 
 // ----------------------------------------------------------------------------------------------------------------------
 
@@ -57,7 +58,7 @@ import { errorID, error, assertID, warnID } from './platform/debug';
  * `director` is a singleton object which manage your game's logic flow.
  * Since the `director` is a singleton, you don't need to call any constructor or create functions,
  * the standard way to use it is by calling:
- * `director.methodName();` 
+ * `director.methodName();`
  * It creates and handle the main Window and manages how and when to execute the Scenes.
  *
  * @zh
@@ -733,6 +734,9 @@ export class Director extends EventTarget {
     public tick (dt: number) {
         if (!this._invalid) {
             this.emit(Director.EVENT_BEGIN_FRAME);
+            if (!EDITOR) {
+                inputManager.frameDispatchEvents();
+            }
             // Update
             if (!this._paused) {
                 this.emit(Director.EVENT_BEFORE_UPDATE);

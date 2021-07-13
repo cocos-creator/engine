@@ -29,10 +29,10 @@
  * @hidden
  */
 
-import { AccelerometerInputEvent, input, MouseInputEvent, TouchInputEvent } from 'pal/input';
+import { AccelerometerInputEvent, input, MouseInputEvent, MouseWheelInputEvent, TouchInputEvent, KeyboardInputEvent } from 'pal/input';
 import { Vec2 } from '../../math/index';
 import { macro } from '../macro';
-import eventManager from './event-manager';
+import { eventManager } from './event-manager';
 import { EventAcceleration, EventKeyboard, EventMouse, EventTouch } from './events';
 import { Touch } from './touch';
 import { legacyCC } from '../../global-exports';
@@ -53,8 +53,6 @@ interface IView {
  *  This class manages all events of input. include: touch, mouse, accelerometer, keyboard
  */
 class InputManager {
-    private _isRegisterEvent = false;
-
     private _preTouchPoint = new Vec2();
     private _prevMousePoint = new Vec2();
 
@@ -70,8 +68,98 @@ class InputManager {
     // TODO: remove this property
     private _glView: IView | null = null;
 
+    /**
+     * Clear events when game is resumed.
+     */
+    public clearEvents () {
+        input.pollMouseEvents();
+        input.pollTouchEvents();
+        input.pollKeyboardEvents();
+        input.pollAccelerometerEvents();
+    }
+
+    public frameDispatchEvents () {
+        const mouseEvents = input.pollMouseEvents();
+        // TODO: culling event queue
+        for (const mouseEvent of mouseEvents) {
+            this._dispatchMouseEvent(mouseEvent);
+        }
+
+        const touchEvents = input.pollTouchEvents();
+        // TODO: culling event queue
+        for (const touchEvent of touchEvents) {
+            this._dispatchTouchEvent(touchEvent);
+        }
+
+        const keyboardEvents = input.pollKeyboardEvents();
+        // TODO: culling event queue
+        for (const keyboardEvent of keyboardEvents) {
+            this._dispatchKeyboardEvent(keyboardEvent);
+        }
+
+        const accelerometerEvents = input.pollAccelerometerEvents();
+        // TODO: culling event queue
+        for (const accelerometerEvent of accelerometerEvents) {
+            this._dispatchAccelerometerEvent(accelerometerEvent);
+        }
+    }
+
+    // #region Mouse Handle
+    private _dispatchMouseEvent (inputEvent: MouseInputEvent) {
+        let mouseEvent: EventMouse;
+        let touch: Touch;
+        switch (inputEvent.type) {
+        case SystemEventType.MOUSE_DOWN:
+            mouseEvent = this._getMouseEvent(inputEvent);
+            touch = this._getTouch(inputEvent);
+            this._handleTouchesStart([touch]);
+            eventManager.dispatchEvent(mouseEvent);
+            break;
+        case SystemEventType.MOUSE_MOVE:
+            mouseEvent = this._getMouseEvent(inputEvent);
+            touch = this._getTouch(inputEvent);
+            this._handleTouchesMove([touch]);
+            eventManager.dispatchEvent(mouseEvent);
+            break;
+        case SystemEventType.MOUSE_UP:
+            mouseEvent = this._getMouseEvent(inputEvent);
+            touch = this._getTouch(inputEvent);
+            this._handleTouchesEnd([touch]);
+            eventManager.dispatchEvent(mouseEvent);
+            break;
+        case SystemEventType.MOUSE_WHEEL:
+            mouseEvent = this._getMouseEvent(inputEvent);
+            mouseEvent.setScrollData((<MouseWheelInputEvent>inputEvent).deltaX, (<MouseWheelInputEvent>inputEvent).deltaY);
+            eventManager.dispatchEvent(mouseEvent);
+            break;
+        default:
+            break;
+        }
+    }
+    // #endregion Mouse Handle
+
     // #region Touch Handle
-    public handleTouchesBegin (touches: Touch[]) {
+    private _dispatchTouchEvent (inputEvent: TouchInputEvent) {
+        const touchList = this._getTouchList(inputEvent);
+        switch (inputEvent.type) {
+        case SystemEventType.TOUCH_START:
+            this._handleTouchesStart(touchList);
+            break;
+        case SystemEventType.TOUCH_MOVE:
+            this._handleTouchesMove(touchList);
+            break;
+        case SystemEventType.TOUCH_END:
+            this._handleTouchesEnd(touchList);
+            break;
+        case SystemEventType.TOUCH_CANCEL:
+            this._handleTouchesCancel(touchList);
+            break;
+        default:
+            break;
+        }
+    }
+
+    private _handleTouchesStart (touches: Touch[]) {
         const handleTouches: Touch[] = [];
         const locTouchIntDict = this._touchesIntegerDict;
         for (let i = 0; i < touches.length; ++i) {
@@ -103,7 +191,7 @@ class InputManager {
         }
     }
 
-    public handleTouchesMove (touches: Touch[]) {
+    private _handleTouchesMove (touches: Touch[]) {
         const handleTouches: Touch[] = [];
         const locTouches = this._touches;
         for (let i = 0; i < touches.length; ++i) {
@@ -131,7 +219,7 @@ class InputManager {
         }
     }
 
-    public handleTouchesEnd (touches: Touch[]) {
+    private _handleTouchesEnd (touches: Touch[]) {
         const handleTouches = this.getSetOfTouchesEndOrCancel(touches);
         if (handleTouches.length > 0) {
             const touchEvent = new EventTouch(handleTouches, false, SystemEventType.TOUCH_END, macro.ENABLE_MULTI_TOUCH ? this._getUsefulTouches() : handleTouches);
@@ -140,7 +228,7 @@ class InputManager {
         this._preTouchPool.length = 0;
     }
 
-    public handleTouchesCancel (touches: Touch[]) {
+    private _handleTouchesCancel (touches: Touch[]) {
         const handleTouches = this.getSetOfTouchesEndOrCancel(touches);
         if (handleTouches.length > 0) {
             const touchEvent = new EventTouch(handleTouches, false, SystemEventType.TOUCH_CANCEL, macro.ENABLE_MULTI_TOUCH ? this._getUsefulTouches() : handleTouches);
@@ -216,6 +304,9 @@ class InputManager {
 
     // TODO: remove this private method
     private _getViewPixelRatio () {
+        if (!this._glView) {
+            this._glView = legacyCC.view;
+        }
         return this._glView ? this._glView._devicePixelRatio : 1;
     }
 
@@ -336,121 +427,52 @@ class InputManager {
     }
     // #endregion Touch Handle
 
+    // #region Keyboard Handle
+    private _dispatchKeyboardEvent (inputEvent: KeyboardInputEvent) {
+        switch (inputEvent.type) {
+        // TODO: to support in Input Module
+        // case 'keypress':
+        //     eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, 'keypress'));
+        //     break;
+        case SystemEventType.KEY_DOWN:
+            eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, SystemEventType.KEY_DOWN));
+            break;
+        case SystemEventType.KEY_UP:
+            eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, SystemEventType.KEY_UP));
+            break;
+        default:
+            break;
+        }
+    }
+    // #endregion Keyboard Handle
+
     // #region Accelerometer Handle
+    _dispatchAccelerometerEvent (inputEvent: AccelerometerInputEvent) {
+        if (inputEvent.type === SystemEventType.DEVICEMOTION) {
+            const { x, y, z, timestamp } = inputEvent;
+            eventManager.dispatchEvent(new EventAcceleration(new Acceleration(x, y, z, timestamp)));
+        }
+    }
     /**
      * Whether enable accelerometer event.
      */
     public setAccelerometerEnabled (isEnable: boolean) {
         if (isEnable) {
-            input._accelerometer.start();
+            input.startAccelerometer();
         } else {
-            input._accelerometer.stop();
+            input.stopAccelerometer();
         }
     }
 
     /**
-     * set accelerometer interval value in mileseconds
+     * set accelerometer interval value in mile seconds
      * @method setAccelerometerInterval
-     * @param {Number} intervalInMileseconds
+     * @param {Number} intervalInMileSeconds
      */
-    public setAccelerometerInterval (intervalInMileseconds) {
-        input._accelerometer.setInterval(intervalInMileseconds);
+    public setAccelerometerInterval (intervalInMileSeconds) {
+        input.setAccelerometerInterval(intervalInMileSeconds);
     }
     // #endregion Accelerometer Handle
-
-    // #region Event Register
-    public registerSystemEvent () {
-        if (this._isRegisterEvent) {
-            return;
-        }
-
-        this._glView = legacyCC.view;
-
-        // Register mouse events.
-        if (input._mouse.support) {
-            this._registerMouseEvents();
-        }
-
-        // Register touch events.
-        if (input._touch.support) {
-            this._registerTouchEvents();
-        }
-
-        if (input._keyboard.support) {
-            this._registerKeyboardEvent();
-        }
-
-        if (input._accelerometer.support) {
-            this._registerAccelerometerEvent();
-        }
-        this._isRegisterEvent = true;
-    }
-
-    private _registerMouseEvents () {
-        input._mouse.onDown((inputEvent) => {
-            const mouseEvent = this._getMouseEvent(inputEvent);
-            const touch =  this._getTouch(inputEvent);
-            this.handleTouchesBegin([touch]);
-            eventManager.dispatchEvent(mouseEvent);
-        });
-        input._mouse.onMove((inputEvent) => {
-            const mouseEvent = this._getMouseEvent(inputEvent);
-            const touch =  this._getTouch(inputEvent);
-            this.handleTouchesMove([touch]);
-            eventManager.dispatchEvent(mouseEvent);
-        });
-        input._mouse.onUp((inputEvent) => {
-            const mouseEvent = this._getMouseEvent(inputEvent);
-            const touch =  this._getTouch(inputEvent);
-            this.handleTouchesEnd([touch]);
-            eventManager.dispatchEvent(mouseEvent);
-        });
-        input._mouse.onWheel((inputEvent) => {
-            const mouseEvent = this._getMouseEvent(inputEvent);
-            mouseEvent.setScrollData(inputEvent.deltaX, inputEvent.deltaY);
-            eventManager.dispatchEvent(mouseEvent);
-        });
-    }
-
-    private _registerTouchEvents () {
-        input._touch.onStart((inputEvent) => {
-            const touchList = this._getTouchList(inputEvent);
-            this.handleTouchesBegin(touchList);
-        });
-        input._touch.onMove((inputEvent) => {
-            const touchList = this._getTouchList(inputEvent);
-            this.handleTouchesMove(touchList);
-        });
-        input._touch.onEnd((inputEvent) => {
-            const touchList = this._getTouchList(inputEvent);
-            this.handleTouchesEnd(touchList);
-        });
-        input._touch.onCancel((inputEvent) => {
-            const touchList = this._getTouchList(inputEvent);
-            this.handleTouchesCancel(touchList);
-        });
-    }
-
-    private _registerKeyboardEvent () {
-        // TODO: to support in Input Module
-        // input._keyboard.onDown((inputEvent) => {
-        //     eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, 'keypress'));
-        // });
-        input._keyboard.onPressing((inputEvent)  => {
-            eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, SystemEventType.KEY_DOWN));
-        });
-        input._keyboard.onUp((inputEvent)  => {
-            eventManager.dispatchEvent(new EventKeyboard(inputEvent.code, SystemEventType.KEY_UP));
-        });
-    }
-
-    private _registerAccelerometerEvent () {
-        input._accelerometer.onChange((inputEvent: AccelerometerInputEvent) => {
-            const { x, y, z, timestamp } = inputEvent;
-            eventManager.dispatchEvent(new EventAcceleration(new Acceleration(x, y, z, timestamp)));
-        });
-    }
-    // #endregion Event Register
 }
 
 const inputManager = new InputManager();

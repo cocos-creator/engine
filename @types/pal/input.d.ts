@@ -21,8 +21,8 @@ declare module 'pal/input' {
 
     interface TouchData {
         /**
-         * A unique identifier for this touch.  
-         * A given touch point will have the same identifier for the duration of its movement around the surface.  
+         * A unique identifier for this touch.
+         * A given touch point will have the same identifier for the duration of its movement around the surface.
          * This lets you ensure that you're tracking the same touch all the time.
          */
         readonly identifier: number;
@@ -52,22 +52,22 @@ declare module 'pal/input' {
     export class TouchInputSource extends BaseInputSource {
         /**
          * Register the touch start event callback.
-         * @param cb 
+         * @param cb
          */
         public onStart (cb: TouchCallback);
         /**
          * Register the touch move event callback.
-         * @param cb 
+         * @param cb
          */
         public onMove (cb: TouchCallback);
         /**
          * Register the touch end event callback.
-         * @param cb 
+         * @param cb
          */
         public onEnd (cb: TouchCallback);
         /**
          * Register the touch cancel event callback.
-         * @param cb 
+         * @param cb
          */
         public onCancel (cb: TouchCallback);
     }
@@ -82,11 +82,11 @@ declare module 'pal/input' {
          */
         readonly y: number;
         /**
-         * The pressed mouse button during the related mouse event.  
+         * The pressed mouse button during the related mouse event.
          * The valid value maybe `EventMouse.BUTTON_LEFT`, `EventMouse.BUTTON_RIGHT` and `EventMouse.BUTTON_MIDDLE`.
          */
         readonly button: number;
-        // this is web only property, should be removed in the futrure. 
+        // this is web only property, should be removed in the futrure.
         movementX?: number;
         movementY?: number;
     }
@@ -108,22 +108,22 @@ declare module 'pal/input' {
     export class MouseInputSource extends BaseInputSource {
         /**
          * Register the mouse down event callback.
-         * @param cb 
+         * @param cb
          */
         public onDown (cb: MouseCallback);
         /**
          * Register the mouse move event callback.
-         * @param cb 
+         * @param cb
          */
         public onMove (cb: MouseCallback);
         /**
          * Register the mouse up event callback.
-         * @param cb 
+         * @param cb
          */
         public onUp (cb: MouseCallback);
         /**
          * Register the mouse wheel event callback.
-         * @param cb 
+         * @param cb
          */
         public onWheel (cb: MouseWheelCallback);
     }
@@ -141,18 +141,18 @@ declare module 'pal/input' {
     export class KeyboardInputSource extends BaseInputSource {
         /**
          * Register the key down event callback.
-         * @param cb 
+         * @param cb
          */
         public onDown (cb: KeyboardCallback);
         /**
          * Register the key pressing event callback.
          * NOTE: Compability for the deprecated KEY_DOWN event type. It should be removed in the future.
-         * @param cb 
+         * @param cb
          */
         public onPressing (cb: KeyboardCallback);
         /**
          * Register the key up event callback.
-         * @param cb 
+         * @param cb
          */
         public onUp (cb: KeyboardCallback);
     }
@@ -184,24 +184,24 @@ declare module 'pal/input' {
      */
     export class AccelerometerInputSource extends BaseInputSource {
         /**
-         * Asynchronously start the accelerometer.  
+         * Asynchronously start the accelerometer.
          * TODO: return a promise.
          */
         public start ();
         /**
-         * Stop the accelerometer.  
+         * Stop the accelerometer.
          * TODO: return a promise.
          */
         public stop ();
         /**
-         * Set interval of the accelerometer callback.  
-         * The interval is in mileseconds.  
+         * Set interval of the accelerometer callback.
+         * The interval is in mileseconds.
          * @param intervalInMileseconds interval in mileseconds
          */
         public setInterval (intervalInMileseconds: number);
         /**
          * Register the accelerometer change event callback.
-         * @param cb 
+         * @param cb
          */
         public onChange (cb: AccelerometerCallback);
     }
@@ -221,12 +221,12 @@ declare module 'pal/input' {
         public hide (): Promise<void>;
         /**
          * Register the UI input box change event callback.
-         * @param cb 
+         * @param cb
          */
         public onChange (cb: ()=>void);
         /**
          * Register the UI input box complete event callback.
-         * @param cb 
+         * @param cb
          */
         public onComplete (cb: ()=>void);
         /**
@@ -242,19 +242,28 @@ declare module 'pal/input' {
     }
 
     /**
-     * Class designed to manage all input sources.  
-     * TODO: designed `pollEvent()` API
+     * Class designed to manage all input sources.
      */
     class Input {
-        public _touch: TouchInputSource;
-        public _mouse: MouseInputSource;
-        public _keyboard: KeyboardInputSource;
-        public _accelerometer: AccelerometerInputSource;
-        public _inputBox: InputBox;
+        private _touch: TouchInputSource;
+        private _mouse: MouseInputSource;
+        private _keyboard: KeyboardInputSource;
+        private _accelerometer: AccelerometerInputSource;
+        private _inputBox: InputBox;
 
-        // public startAccelerometer (): Promise<void>;
-        // public stopAccelerometer (): Promise<void>;
-        // public setAccelerometerInterval (intercal: number): void;
+        private _touchEvents: TouchInputEvent[];
+        private _mouseEvents: MouseInputEvent[];
+        private _keyboardEvents: KeyboardInputEvent[];
+        private _accelerometerEvents: AccelerometerInputEvent[];
+
+        public pollTouchEvents (): TouchInputEvent[];
+        public pollMouseEvents (): MouseInputEvent[];
+        public pollKeyboardEvents (): KeyboardInputEvent[];
+        public pollAccelerometerEvents (): AccelerometerInputEvent[];
+
+        public startAccelerometer (): void;
+        public stopAccelerometer (): void;
+        public setAccelerometerInterval (interval: number): void;
 
         // // input box
         // public showInputBox (): Promise<void>;

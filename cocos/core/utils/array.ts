@@ -191,7 +191,7 @@ export function contains<T> (array: T[], value: T) {
  */
 export function copy<T> (array: T[]) {
     const len = array.length;
-    const cloned = new Array(len);
+    const cloned = new Array<T>(len);
     for (let i = 0; i < len; i += 1) {
         cloned[i] = array[i];
     }

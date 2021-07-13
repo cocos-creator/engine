@@ -1238,7 +1238,3 @@ class EventManager {
  * @deprecated
  */
 export const eventManager = new EventManager();
-
-legacyCC.eventManager = eventManager;
-
-export default eventManager;

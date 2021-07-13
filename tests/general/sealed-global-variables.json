@@ -312,7 +312,6 @@
         "cc.easing",
         "cc.error",
         "cc.errorID",
-        "cc.eventManager",
         "cc.find",
         "cc.game",
         "cc.geometry",
