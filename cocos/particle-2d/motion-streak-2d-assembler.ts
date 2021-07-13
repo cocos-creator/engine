@@ -96,7 +96,7 @@ export const MotionStreakAssembler: IAssembler = {
 
         if (!cur) {
             cur = new MotionStreak.Point();
-            points.splice(0, 0, cur);
+            points.unshift(cur);
         }
 
         cur.setPoint(tx, ty);

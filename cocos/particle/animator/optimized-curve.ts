@@ -95,7 +95,7 @@ export class OptimizedCurve {
         } else {
             let keyOffset = 0;
             if (animationCurve.keyFrames![0].time !== 0) {
-                this.optimizedKeys.splice(0, 0, new OptimizedKey());
+                this.optimizedKeys.unshift(new OptimizedKey());
                 this.optimizedKeys[0].time = 0;
                 this.optimizedKeys[0].endTime = animationCurve.keyFrames![0].time;
                 this.optimizedKeys[0].coefficient[3] = animationCurve.keyFrames![0].value;

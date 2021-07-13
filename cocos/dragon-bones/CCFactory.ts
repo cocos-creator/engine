@@ -117,7 +117,7 @@ export class CCFactory extends BaseFactory implements ISchedulable {
                 }
             }
             if (!inserted) {
-                sortedSlots.splice(0, 0, slot);
+                sortedSlots.unshift(slot);
             }
         }
         this._slots = sortedSlots;
