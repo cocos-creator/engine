@@ -49,6 +49,13 @@ _proto._worldTransform = function (node) {
     _batcher.worldMatDirty --;
 };
 
+_proto._updateRenderData = function (node) {
+    let comp = node._renderComponent;
+    comp._assembler.updateRenderData(comp);
+    node._renderFlag &= ~UPDATE_RENDER_DATA;
+    this._next._func(node);
+};
+
 _proto._opacity = function (node) {
     _batcher.parentOpacityDirty++;
 
@@ -68,20 +75,12 @@ _proto._color = function (node) {
     this._next._func(node);
 };
 
-_proto._updateRenderData = function (node) {
-    let comp = node._renderComponent;
-    comp._assembler.updateRenderData(comp);
-    node._renderFlag &= ~UPDATE_RENDER_DATA;
-    this._next._func(node);
-};
-
 _proto._render = function (node) {
     let comp = node._renderComponent;
     comp._checkBacth(_batcher, node._cullingMask);
     comp._assembler.fillBuffers(comp, _batcher);
     this._next._func(node);
 };
-
 
 _proto._children = function (node) {
     let cullingMask = _cullingMask;
@@ -130,30 +129,28 @@ EMPTY_FLOW._next = EMPTY_FLOW;
 let flows = {};
 
 function createFlow (flag, next) {
+    if (flag === DONOTHING || flag === BREAK_FLOW) {
+        return EMPTY_FLOW
+    }
+    
     let flow = new RenderFlow();
     flow._next = next || EMPTY_FLOW;
 
     switch (flag) {
-        case DONOTHING: 
-            flow._func = flow._doNothing;
-            break;
-        case BREAK_FLOW:
-            flow._func = flow._doNothing;
-            break;
         case LOCAL_TRANSFORM: 
             flow._func = flow._localTransform;
             break;
         case WORLD_TRANSFORM: 
             flow._func = flow._worldTransform;
             break;
+        case UPDATE_RENDER_DATA:
+            flow._func = flow._updateRenderData;
+            break;
         case OPACITY:
             flow._func = flow._opacity;
             break;
         case COLOR:
             flow._func = flow._color;
-            break;
-        case UPDATE_RENDER_DATA:
-            flow._func = flow._updateRenderData;
             break;
         case RENDER: 
             flow._func = flow._render;
@@ -278,10 +275,10 @@ RenderFlow.FLAG_BREAK_FLOW = BREAK_FLOW;
 RenderFlow.FLAG_LOCAL_TRANSFORM = LOCAL_TRANSFORM;
 RenderFlow.FLAG_WORLD_TRANSFORM = WORLD_TRANSFORM;
 RenderFlow.FLAG_TRANSFORM = TRANSFORM;
+RenderFlow.FLAG_UPDATE_RENDER_DATA = UPDATE_RENDER_DATA;
 RenderFlow.FLAG_OPACITY = OPACITY;
 RenderFlow.FLAG_COLOR = COLOR;
 RenderFlow.FLAG_OPACITY_COLOR = OPACITY_COLOR;
-RenderFlow.FLAG_UPDATE_RENDER_DATA = UPDATE_RENDER_DATA;
 RenderFlow.FLAG_RENDER = RENDER;
 RenderFlow.FLAG_CHILDREN = CHILDREN;
 RenderFlow.FLAG_POST_RENDER = POST_RENDER;
