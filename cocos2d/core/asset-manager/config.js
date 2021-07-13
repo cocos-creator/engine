@@ -94,7 +94,7 @@ Config.prototype = {
                     paths.get(path).push(assetInfo);
                 }
                 else {
-                    paths.get(path).splice(0, 0, assetInfo);
+                    paths.get(path).unshift(assetInfo);
                 } 
             }
             else {
@@ -130,7 +130,7 @@ Config.prototype = {
                 var assetPacks = assetInfo.packs;
                 if (assetPacks) {
                     if (l === 1) {
-                        assetPacks.splice(0, 0, pack);
+                        assetPacks.unshift(pack);
                     }
                     else {
                         assetPacks.push(pack);

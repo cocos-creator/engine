@@ -119,7 +119,7 @@ export default class ForwardRenderer extends BaseRenderer {
 
       if (light.shadowType !== enums.SHADOW_NONE) {
         if (this._shadowLights.length < CC_MAX_SHADOW_LIGHTS) {
-          this._shadowLights.splice(0, 0, light);
+          this._shadowLights.unshift(light);
         }
         let view = this._requestView();
         light.extractView(view, ['shadowcast']);

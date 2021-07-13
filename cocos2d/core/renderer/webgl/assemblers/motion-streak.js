@@ -103,7 +103,7 @@ export default class MotionStreakAssembler extends Assembler2D {
 
         if (!cur) {
             cur = new Point();
-            points.splice(0, 0, cur);
+            points.unshift(cur);
         }
 
         cur.setPoint(tx, ty);
