@@ -58,6 +58,24 @@ function copyRal () {
     });
 }
 
+async function cleanOldAdapter () {
+    console.log('Cleaning old runtime adapter...\n');
+    const distDir = join(__dirname, '../platforms/runtime');
+    const delPatterns = [];
+    // del web adapter
+    ['web-adapter.js', 'web-adapter.min.js'].forEach(fileName => {
+        const dst = join(distDir, 'common', fileName);
+        delPatterns.push(dst);
+    });
+    // del ral
+    ['cocos-play', 'huawei-quick-game', 'link-sure', 'oppo-mini-game', 'qtt', 'vivo-mini-game'].forEach(platformName => {
+        ['ral.js', 'ral.min.js'].forEach(fileName => {
+            const dst = join(distDir, 'platforms', platformName, fileName);
+            delPatterns.push(dst);
+        });
+    });
+    await del(delPatterns, { force: true });
+}
 
 /**
  * @param {string} dirPath 
@@ -70,13 +88,16 @@ async function removeDir (dirPath) {
 
 (async () => {
     try {
+        await cleanOldAdapter();
         await removeDir(ralPath);
         await downloadAndExtractRepo('https://codeload.github.com/yangws/runtime-web-adapter/zip/refs/heads/for-creator-3');
         await runCommand('npm install');
         await runCommand('gulp');
         copyRal();
         await removeDir(ralPath);
+        process.exit(0);
     } catch (err) {
         console.error('Fetch ral failed', err);
+        process.exit(1);
     }
 })();
