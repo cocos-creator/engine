@@ -36,67 +36,7 @@ import { bezierByTime, BezierControlPoints } from './bezier';
 import * as easing from './easing';
 import { ILerpable, isLerpable } from './types';
 import { legacyCC } from '../global-exports';
-
-/**
- * 表示曲线值，曲线值可以是任意类型，但必须符合插值方式的要求。
- */
-export type CurveValue = any;
-
-/**
- * 表示曲线的目标对象。
- */
-export type CurveTarget = Record<string, any>;
-
-/**
- * 内置帧时间渐变方式名称。
- */
-export type EasingMethodName = keyof (typeof easing);
-
-/**
- * 帧时间渐变方式。可能为内置帧时间渐变方式的名称或贝塞尔控制点。
- */
-export type EasingMethod = EasingMethodName | BezierControlPoints;
-
-type LerpFunction<T = any> = (from: T, to: T, t: number, dt: number) => T;
-
-type CompressedEasingMethods = Record<number, EasingMethod>;
-
-/**
- * 曲线数据。
- */
-export interface IPropertyCurveData {
-    /**
-     * 曲线使用的时间轴。
-     * @see {AnimationClip.keys}
-     */
-    keys: number;
-
-    /**
-     * 曲线值。曲线值的数量应和 `keys` 所引用时间轴的帧数相同。
-     */
-    values: CurveValue[];
-
-    /**
-     * 曲线任意两帧时间的渐变方式。仅当 `easingMethods === undefined` 时本字段才生效。
-     */
-    easingMethod?: EasingMethod;
-
-    /**
-     * 描述了每一帧时间到下一帧时间之间的渐变方式。
-     */
-    easingMethods?: EasingMethod[] | CompressedEasingMethods;
-
-    /**
-     * 是否进行插值。
-     * @default true
-     */
-    interpolate?: boolean;
-
-    /**
-     * For internal usage only.
-     */
-    _arrayLength?: number;
-}
+import type * as legacy from './legacy-clip-data';
 
 export class RatioSampler {
     public ratios: number[];
@@ -138,14 +78,14 @@ export class AnimCurve {
         return controlPoints as BezierControlPoints;
     }
 
-    public types?: Array<(EasingMethod | null)> = undefined;
+    public types?: Array<(legacy.LegacyEasingMethod | null)> = undefined;
 
-    public type?: EasingMethod | null = null;
+    public type?: legacy.LegacyEasingMethod | null = null;
 
     /**
      * The values of the keyframes. (y)
      */
-    private _values: CurveValue[] = [];
+    private _values: legacy.LegacyCurveValue[] = [];
 
     /**
      * Lerp function used. If undefined, no lerp is performed.
@@ -156,13 +96,13 @@ export class AnimCurve {
 
     private _array?: any[];
 
-    constructor (propertyCurveData: Omit<IPropertyCurveData, 'keys'>, duration: number) {
+    constructor (propertyCurveData: Omit<legacy.LegacyClipCurveData, 'keys'>, duration: number) {
         this._duration = duration;
 
         // Install values.
         this._values = propertyCurveData.values;
 
-        const getCurveType = (easingMethod: EasingMethod) => {
+        const getCurveType = (easingMethod: legacy.LegacyEasingMethod) => {
             if (typeof easingMethod === 'string') {
                 return easingMethod;
             } else if (Array.isArray(easingMethod)) {
@@ -323,7 +263,7 @@ legacyCC.sampleAnimationCurve = sampleAnimationCurve;
  * @param type - If it's Array, then ratio will be computed with bezierByTime.
  * If it's string, then ratio will be computed with cc.easing function
  */
-export function computeRatioByType (ratio: number, type: EasingMethod) {
+export function computeRatioByType (ratio: number, type: legacy.LegacyEasingMethod) {
     if (typeof type === 'string') {
         const func = easing[type];
         if (func) {
@@ -389,7 +329,7 @@ const selectLerpFx = (() => {
         return (from: Quat, to: Quat, t: number, dt: number) => Quat.slerp(tempValue, from, to, t);
     }
 
-    return (value: any): LerpFunction<any> | undefined => {
+    return (value: any): legacy.LegacyLerpFunction<any> | undefined => {
         if (value === null) {
             return undefined;
         }

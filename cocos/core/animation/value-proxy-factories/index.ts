@@ -30,4 +30,4 @@
 
 export * from './uniform';
 
-export { MorphWeightsValueProxy, MorphWeightsAllValueProxy  } from './morph-weights';
+export { MorphWeightValueProxy, MorphWeightsValueProxy, MorphWeightsAllValueProxy  } from './morph-weights';

@@ -178,6 +178,9 @@ export class MeshRenderer extends RenderableComponent {
     @serializable
     protected _shadowReceivingMode = ModelShadowReceivingMode.ON;
 
+    @serializable
+    private _subMeshShapesWeights: number[][] = [];
+
     /**
      * @en Shadow projection mode.
      * @zh 阴影投射方式。
@@ -211,8 +214,10 @@ export class MeshRenderer extends RenderableComponent {
     }
 
     /**
-     * @en The mesh of the model.
-     * @zh 模型的网格数据。
+     * @en Gets or sets the mesh of the model.
+     * Note, when set, all shape's weights would be reset to zero.
+     * @zh 获取或设置模型的网格数据。
+     * 注意，设置时，所有形状的权重都将归零。
      */
     @type(Mesh)
     @tooltip('i18n:model.mesh')
@@ -222,8 +227,9 @@ export class MeshRenderer extends RenderableComponent {
 
     set mesh (val) {
         const old = this._mesh;
-        this._mesh = val;
-        if (this._mesh) { this._mesh.initialize(); }
+        const mesh = this._mesh = val;
+        mesh?.initialize();
+        this._initSubMeshShapesWeights();
         this._watchMorphInMesh();
         this._onMeshChanged(old);
         this._updateModels();
@@ -271,6 +277,9 @@ export class MeshRenderer extends RenderableComponent {
 
     public onLoad () {
         if (this._mesh) { this._mesh.initialize(); }
+        if (!this._validateShapeWeights()) {
+            this._initSubMeshShapesWeights();
+        }
         this._watchMorphInMesh();
         this._updateModels();
         this._updateCastShadow();
@@ -308,10 +317,60 @@ export class MeshRenderer extends RenderableComponent {
         }
     }
 
+    /**
+     * Gets the weight at specified shape of specified sub mesh.
+     * @param subMeshIndex Index to the sub mesh.
+     * @param shapeIndex Index to the shape of the sub mesh.
+     * @returns The weight.
+     */
+    public getWeight (subMeshIndex: number, shapeIndex: number) {
+        const { _subMeshShapesWeights: subMeshShapesWeights } = this;
+        assertIsTrue(subMeshIndex < subMeshShapesWeights.length);
+        const shapeWeights = this._subMeshShapesWeights[subMeshIndex];
+        assertIsTrue(shapeIndex < shapeWeights.length);
+        return shapeWeights[shapeIndex];
+    }
+
+    /**
+     * Sets weights of each shape of specified sub mesh.
+     * If takes no effect if
+     * `subMeshIndex` out of bounds or
+     * `weights` has a different length with shapes count of the sub mesh.
+     * @param weights The weights.
+     * @param subMeshIndex Index to the sub mesh.
+     */
     public setWeights (weights: number[], subMeshIndex: number) {
-        if (this._morphInstance) {
-            this._morphInstance.setWeights(subMeshIndex, weights);
+        const { _subMeshShapesWeights: subMeshShapesWeights } = this;
+        if (subMeshIndex >= subMeshShapesWeights.length) {
+            return;
         }
+        const shapeWeights = subMeshShapesWeights[subMeshIndex];
+        if (shapeWeights.length !== weights.length) {
+            return;
+        }
+        subMeshShapesWeights[subMeshIndex] = weights.slice(0);
+        this._uploadSubMeshShapesWeights(subMeshIndex);
+    }
+
+    /**
+     * Sets the weight at specified shape of specified sub mesh.
+     * If takes no effect if
+     * `subMeshIndex` or `shapeIndex` out of bounds.
+     * @param weight The weight.
+     * @param subMeshIndex Index to the sub mesh.
+     * @param shapeIndex Index to the shape of the sub mesh.
+     */
+    public setWeight (weight: number, subMeshIndex: number, shapeIndex: number) {
+        const { _subMeshShapesWeights: subMeshShapesWeights } = this;
+        if (subMeshIndex >= subMeshShapesWeights.length) {
+            return;
+        }
+        const shapeWeights = subMeshShapesWeights[subMeshIndex];
+        if (shapeIndex >= shapeWeights.length) {
+            return;
+        }
+        shapeWeights[shapeIndex] = weight;
+        this._uploadSubMeshShapesWeights(subMeshIndex);
     }
 
     public setInstancedAttribute (name: string, value: ArrayLike<number>) {
@@ -511,19 +570,10 @@ export class MeshRenderer extends RenderableComponent {
             return;
         }
 
-        const { morph } = this._mesh.struct;
         this._morphInstance = this._mesh.morphRendering.createInstance();
         const nSubMeshes = this._mesh.struct.primitives.length;
         for (let iSubMesh = 0; iSubMesh < nSubMeshes; ++iSubMesh) {
-            const subMeshMorph = morph.subMeshMorphs[iSubMesh];
-            if (!subMeshMorph) {
-                continue;
-            }
-            const initialWeights = subMeshMorph.weights || morph.weights;
-            const weights = initialWeights
-                ? initialWeights.slice()
-                : new Array<number>(subMeshMorph.targets.length).fill(0);
-            this._morphInstance.setWeights(iSubMesh, weights);
+            this._uploadSubMeshShapesWeights(iSubMesh);
         }
 
         if (this._model && this._model instanceof MorphModel) {
@@ -531,15 +581,57 @@ export class MeshRenderer extends RenderableComponent {
         }
     }
 
-    private _syncMorphWeights (subMeshIndex: number) {
-        if (!this._morphInstance) {
+    private _initSubMeshShapesWeights () {
+        const { _mesh: mesh } = this;
+
+        this._subMeshShapesWeights.length = 0;
+
+        if (!mesh) {
             return;
         }
-        const subMeshMorphInstance = this._morphInstance[subMeshIndex];
-        if (!subMeshMorphInstance || !subMeshMorphInstance.renderResources) {
+
+        const morph = mesh.struct.morph;
+        if (!morph) {
             return;
         }
-        subMeshMorphInstance.renderResources.setWeights(subMeshMorphInstance.weights);
+
+        const commonWeights = morph.weights;
+        this._subMeshShapesWeights = morph.subMeshMorphs.map((subMeshMorph) => {
+            if (!subMeshMorph) {
+                return [];
+            } else if (subMeshMorph.weights) {
+                return subMeshMorph.weights.slice(0);
+            } else if (commonWeights) {
+                assertIsTrue(commonWeights.length === subMeshMorph.targets.length);
+                return commonWeights.slice(0);
+            } else {
+                return new Array<number>(subMeshMorph.targets.length).fill(0.0);
+            }
+        });
+    }
+
+    private _validateShapeWeights () {
+        const {
+            _mesh: mesh,
+            _subMeshShapesWeights: subMeshShapesWeights,
+        } = this;
+
+        if (!mesh || !mesh.struct.morph) {
+            return subMeshShapesWeights.length === 0;
+        }
+
+        const { morph } = mesh.struct;
+        if (morph.subMeshMorphs.length !== subMeshShapesWeights.length) {
+            return false;
+        }
+
+        return subMeshShapesWeights.every(
+            ({ length: shapeCount }, subMeshIndex) => (morph.subMeshMorphs[subMeshIndex]?.targets.length ?? 0) === shapeCount,
+        );
+    }
+
+    private _uploadSubMeshShapesWeights (subMeshIndex: number) {
+        this._morphInstance?.setWeights(subMeshIndex, this._subMeshShapesWeights[subMeshIndex]);
     }
 }
 

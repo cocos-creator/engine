@@ -30,18 +30,11 @@
 
 import { CCClass } from '../data/class';
 import { clamp, inverseLerp, pingPong, repeat } from '../math/utils';
-import { Enum } from '../value-types/enum';
 import { WrapModeMask } from '../animation/types';
+import { ExtrapMode, RealCurve, RealInterpMode, RealKeyframeValue } from '../curves';
+import { ccclass, serializable } from '../data/decorators';
 
 const LOOK_FORWARD = 3;
-
-const WrapMode = Enum({
-    Default: WrapModeMask.Default,
-    Normal: WrapModeMask.Normal,
-    Clamp: WrapModeMask.Clamp,
-    Loop: WrapModeMask.Loop,
-    PingPong: WrapModeMask.PingPong,
-});
 
 /**
  * @en
@@ -110,7 +103,11 @@ export function evalOptCurve (t: number, coefs: Float32Array | number[]) {
  * @zh
  * 描述一条曲线，其中每个相邻关键帧采用三次hermite插值计算。
  */
+@ccclass('cc.AnimationCurve')
 export class AnimationCurve {
+    @serializable
+    private _curve!: RealCurve;
+
     private static defaultKF: Keyframe[] = [{
         time: 0,
         value: 1,
@@ -124,12 +121,41 @@ export class AnimationCurve {
     }];
 
     /**
+     * For internal usage only.
+     * @internal
+     */
+    get _internalCurve () {
+        return this._curve;
+    }
+
+    /**
      * @en
      * The key frame of the curve.
      * @zh
      * 曲线的关键帧。
      */
-    public keyFrames: Keyframe[] | null;
+    get keyFrames () {
+        return Array.from(this._curve.keyframes()).map(([time, value]) => {
+            const legacyKeyframe = new Keyframe();
+            legacyKeyframe.time = time;
+            legacyKeyframe.value = value.value;
+            legacyKeyframe.inTangent = value.startTangent;
+            legacyKeyframe.outTangent = value.endTangent;
+            return legacyKeyframe;
+        });
+    }
+
+    set keyFrames (value) {
+        this._curve.assignSorted(value.map((legacyCurve) => [
+            legacyCurve.time,
+            new RealKeyframeValue({
+                interpMode: RealInterpMode.CUBIC,
+                value: legacyCurve.value,
+                startTangent: legacyCurve.inTangent,
+                endTangent: legacyCurve.outTangent,
+            }),
+        ]));
+    }
 
     /**
      * @en
@@ -137,7 +163,13 @@ export class AnimationCurve {
      * @zh
      * 当采样时间超出左端时采用的循环模式[[WrapMode]]。
      */
-    public preWrapMode: number = WrapMode.Loop;
+    get preWrapMode () {
+        return toLegacyWrapMode(this._curve.preExtrap);
+    }
+
+    set preWrapMode (value) {
+        this._curve.preExtrap = fromLegacyWrapMode(value);
+    }
 
     /**
      * @en
@@ -145,7 +177,13 @@ export class AnimationCurve {
      * @zh
      * 当采样时间超出右端时采用的循环模式[[WrapMode]]。
      */
-    public postWrapMode: number = WrapMode.Clamp;
+    get postWrapMode () {
+        return toLegacyWrapMode(this._curve.postExtrap);
+    }
+
+    set postWrapMode (value) {
+        this._curve.postExtrap = fromLegacyWrapMode(value);
+    }
 
     private cachedKey: OptimizedKey;
 
@@ -153,8 +191,28 @@ export class AnimationCurve {
      * 构造函数。
      * @param keyFrames 关键帧。
      */
-    constructor (keyFrames: Keyframe[] | null = null) {
-        this.keyFrames = keyFrames || ([] as Keyframe[]).concat(AnimationCurve.defaultKF);
+    constructor (keyFrames: Keyframe[] | null | RealCurve = null) {
+        if (keyFrames instanceof RealCurve) {
+            this._curve = keyFrames;
+        } else {
+            const curve = new RealCurve();
+            this._curve = curve;
+            curve.preExtrap = ExtrapMode.REPEAT;
+            curve.postExtrap = ExtrapMode.CLAMP;
+            if (!keyFrames) {
+                curve.assignSorted([
+                    [0.0, new RealKeyframeValue({ interpMode: RealInterpMode.CUBIC, value: 1.0 })],
+                    [1.0, new RealKeyframeValue({ interpMode: RealInterpMode.CUBIC, value: 1.0 })],
+                ]);
+            } else {
+                curve.assignSorted(keyFrames.map((legacyKeyframe) => [legacyKeyframe.time, new RealKeyframeValue({
+                    interpMode: RealInterpMode.CUBIC,
+                    value: legacyKeyframe.value,
+                    startTangent: legacyKeyframe.inTangent,
+                    endTangent: legacyKeyframe.outTangent,
+                })]));
+            }
+        }
         this.cachedKey = new OptimizedKey();
     }
 
@@ -165,11 +223,17 @@ export class AnimationCurve {
      * 添加一个关键帧。
      * @param keyFrame 关键帧。
      */
-    public addKey (keyFrame: Keyframe) {
-        if (this.keyFrames == null) {
-            this.keyFrames = [];
+    public addKey (keyFrame: Keyframe | null) {
+        if (!keyFrame) {
+            this._curve.clear();
+        } else {
+            this._curve.addKeyFrame(keyFrame.time, new RealKeyframeValue({
+                interpMode: RealInterpMode.CUBIC,
+                value: keyFrame.value,
+                startTangent: keyFrame.inTangent,
+                endTangent: keyFrame.outTangent,
+            }));
         }
-        this.keyFrames.push(keyFrame);
     }
 
     /**
@@ -177,57 +241,7 @@ export class AnimationCurve {
      * @param time
      */
     public evaluate_slow (time: number) {
-        let wrappedTime = time;
-        const wrapMode = time < 0 ? this.preWrapMode : this.postWrapMode;
-        const startTime = this.keyFrames![0].time;
-        const endTime = this.keyFrames![this.keyFrames!.length - 1].time;
-        switch (wrapMode) {
-        case WrapMode.Loop:
-            wrappedTime = repeat(time - startTime, endTime - startTime) + startTime;
-            break;
-        case WrapMode.PingPong:
-            wrappedTime = pingPong(time - startTime, endTime - startTime) + startTime;
-            break;
-        case WrapMode.Default:
-        case WrapMode.Normal:
-        case WrapMode.Clamp:
-            wrappedTime = clamp(time, startTime, endTime);
-            break;
-        default:
-            wrappedTime = clamp(time, startTime, endTime);
-            break;
-        }
-        let preKFIndex = 0;
-        if (wrappedTime > this.keyFrames![0].time) {
-            if (wrappedTime >= this.keyFrames![this.keyFrames!.length - 1].time) {
-                preKFIndex = this.keyFrames!.length - 2;
-            } else {
-                for (let i = 0; i < this.keyFrames!.length - 1; i++) {
-                    if (wrappedTime >= this.keyFrames![0].time && wrappedTime <= this.keyFrames![i + 1].time) {
-                        preKFIndex = i;
-                        break;
-                    }
-                }
-            }
-        }
-        const keyframe0 = this.keyFrames![preKFIndex];
-        const keyframe1 = this.keyFrames![preKFIndex + 1];
-
-        const t = inverseLerp(keyframe0.time, keyframe1.time, wrappedTime);
-        const dt = keyframe1.time - keyframe0.time;
-
-        const m0 = keyframe0.outTangent * dt;
-        const m1 = keyframe1.inTangent * dt;
-
-        const t2 = t * t;
-        const t3 = t2 * t;
-
-        const a = 2 * t3 - 3 * t2 + 1;
-        const b = t3 - 2 * t2 + t;
-        const c = t3 - t2;
-        const d = -2 * t3 + 3 * t2;
-
-        return a * keyframe0.value + b * m0 + c * m1 + d * keyframe1.value;
+        return this._curve.evaluate(time);
     }
 
     /**
@@ -238,33 +252,32 @@ export class AnimationCurve {
      * @param time 时间。
      */
     public evaluate (time: number) {
+        const { cachedKey, _curve: curve } = this;
+        const nKeyframes = curve.keyFramesCount;
+        const lastKeyframeIndex = nKeyframes - 1;
         let wrappedTime = time;
-        const wrapMode = time < 0 ? this.preWrapMode : this.postWrapMode;
-        const startTime = this.keyFrames![0].time;
-        const endTime = this.keyFrames![this.keyFrames!.length - 1].time;
-        switch (wrapMode) {
-        case WrapMode.Loop:
+        const extrapMode = time < 0 ? curve.preExtrap : curve.postExtrap;
+        const startTime = curve.getKeyframeTime(0);
+        const endTime = curve.getKeyframeTime(lastKeyframeIndex);
+        switch (extrapMode) {
+        case ExtrapMode.REPEAT:
             wrappedTime = repeat(time - startTime, endTime - startTime) + startTime;
             break;
-        case WrapMode.PingPong:
+        case ExtrapMode.PING_PONG:
             wrappedTime = pingPong(time - startTime, endTime - startTime) + startTime;
             break;
-        case WrapMode.Default:
-        case WrapMode.Normal:
-        case WrapMode.Clamp:
-            wrappedTime = clamp(time, startTime, endTime);
-            break;
+        case ExtrapMode.CLAMP:
         default:
             wrappedTime = clamp(time, startTime, endTime);
             break;
         }
-        if (wrappedTime >= this.cachedKey.time && wrappedTime < this.cachedKey.endTime) {
-            return this.cachedKey.evaluate(wrappedTime);
+        if (wrappedTime >= cachedKey.time && wrappedTime < cachedKey.endTime) {
+            return cachedKey.evaluate(wrappedTime);
         }
-        const leftIndex = this.findIndex(this.cachedKey, wrappedTime);
-        const rightIndex = Math.min(leftIndex + 1, this.keyFrames!.length - 1);
-        this.calcOptimizedKey(this.cachedKey, leftIndex, rightIndex);
-        return this.cachedKey.evaluate(wrappedTime);
+        const leftIndex = this.findIndex(cachedKey, wrappedTime);
+        const rightIndex = Math.min(leftIndex + 1, lastKeyframeIndex);
+        this.calcOptimizedKey(cachedKey, leftIndex, rightIndex);
+        return cachedKey.evaluate(wrappedTime);
     }
 
     /**
@@ -274,22 +287,24 @@ export class AnimationCurve {
      * @param rightIndex
      */
     public calcOptimizedKey (optKey: OptimizedKey, leftIndex: number, rightIndex: number) {
-        const lhs = this.keyFrames![leftIndex];
-        const rhs = this.keyFrames![rightIndex];
+        const lhsTime = this._curve.getKeyframeTime(leftIndex);
+        const rhsTime = this._curve.getKeyframeTime(rightIndex);
+        const { value: lhsValue, endTangent: lhsOutTangent } = this._curve.getKeyframeValue(leftIndex);
+        const { value: rhsValue, startTangent: rhsInTangent  } = this._curve.getKeyframeValue(rightIndex);
         optKey.index = leftIndex;
-        optKey.time = lhs.time;
-        optKey.endTime = rhs.time;
+        optKey.time = lhsTime;
+        optKey.endTime = rhsTime;
 
-        const dx = rhs.time - lhs.time;
-        const dy = rhs.value - lhs.value;
+        const dx = rhsTime - lhsTime;
+        const dy = rhsValue - lhsValue;
         const length = 1 / (dx * dx);
-        const d1 = lhs.outTangent * dx;
-        const d2 = rhs.inTangent * dx;
+        const d1 = lhsOutTangent * dx;
+        const d2 = rhsInTangent * dx;
 
         optKey.coefficient[0] = (d1 + d2 - dy - dy) * length / dx;
         optKey.coefficient[1] = (dy + dy + dy - d1 - d1 - d2) * length;
-        optKey.coefficient[2] = lhs.outTangent;
-        optKey.coefficient[3] = lhs.value;
+        optKey.coefficient[2] = lhsOutTangent;
+        optKey.coefficient[3] = lhsValue;
     }
 
     /**
@@ -298,31 +313,33 @@ export class AnimationCurve {
      * @param t
      */
     private findIndex (optKey: OptimizedKey, t: number) {
+        const { _curve: curve } = this;
+        const nKeyframes = curve.keyFramesCount;
         const cachedIndex = optKey.index;
         if (cachedIndex !== -1) {
-            const cachedTime = this.keyFrames![cachedIndex].time;
+            const cachedTime = curve.getKeyframeTime(cachedIndex);
             if (t > cachedTime) {
                 for (let i = 0; i < LOOK_FORWARD; i++) {
                     const currIndex = cachedIndex + i;
-                    if (currIndex + 1 < this.keyFrames!.length && this.keyFrames![currIndex + 1].time > t) {
+                    if (currIndex + 1 < nKeyframes && curve.getKeyframeTime(currIndex + 1) > t) {
                         return currIndex;
                     }
                 }
             } else {
                 for (let i = 0; i < LOOK_FORWARD; i++) {
                     const currIndex = cachedIndex - i;
-                    if (currIndex >= 0 && this.keyFrames![currIndex - 1].time <= t) {
+                    if (currIndex >= 0 && curve.getKeyframeTime(currIndex - 1) <= t) {
                         return currIndex - 1;
                     }
                 }
             }
         }
         let left = 0;
-        let right = this.keyFrames!.length;
+        let right = nKeyframes;
         let mid;
         while (right - left > 1) {
             mid = Math.floor((left + right) / 2);
-            if (this.keyFrames![mid].time >= t) {
+            if (curve.getKeyframeTime(mid) >= t) {
                 right = mid;
             } else {
                 left = mid;
@@ -332,8 +349,35 @@ export class AnimationCurve {
     }
 }
 
-CCClass.fastDefine('cc.AnimationCurve', AnimationCurve, {
-    preWrapMode: WrapMode.Default,
-    postWrapMode: WrapMode.Default,
-    keyFrames: [],
-});
+function fromLegacyWrapMode (legacyWrapMode: WrapModeMask): ExtrapMode {
+    switch (legacyWrapMode) {
+    default:
+    case WrapModeMask.Default:
+    case WrapModeMask.Normal:
+    case WrapModeMask.Clamp: return ExtrapMode.CLAMP;
+    case WrapModeMask.PingPong: return ExtrapMode.PING_PONG;
+    case WrapModeMask.Loop: return ExtrapMode.REPEAT;
+    }
+}
+
+function toLegacyWrapMode (extrapMode: ExtrapMode): WrapModeMask {
+    switch (extrapMode) {
+    default:
+    case ExtrapMode.LINEAR:
+    case ExtrapMode.CLAMP: return WrapModeMask.Clamp;
+    case ExtrapMode.PING_PONG: return WrapModeMask.PingPong;
+    case ExtrapMode.REPEAT: return WrapModeMask.Loop;
+    }
+}
+
+/**
+ * Same as but more effective than `new LegacyCurve()._internalCurve`.
+ */
+export function constructLegacyCurveAndConvert () {
+    const curve = new RealCurve();
+    curve.assignSorted([
+        [0.0, new RealKeyframeValue({ interpMode: RealInterpMode.CUBIC, value: 1.0 })],
+        [1.0, new RealKeyframeValue({ interpMode: RealInterpMode.CUBIC, value: 1.0 })],
+    ]);
+    return curve;
+}

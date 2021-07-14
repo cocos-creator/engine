@@ -112,16 +112,20 @@ function makeCubicSplineValueConstructor<T> (
 export const CubicSplineVec2Value = makeCubicSplineValueConstructor(
     'cc.CubicSplineVec2Value', Vec2, Vec2.multiplyScalar, Vec2.scaleAndAdd,
 );
+
+export type CubicSplineVec2Value = ICubicSplineValue<Vec2>;
 legacyCC.CubicSplineVec2Value = CubicSplineVec2Value;
 
 export const CubicSplineVec3Value = makeCubicSplineValueConstructor(
     'cc.CubicSplineVec3Value', Vec3, Vec3.multiplyScalar, Vec3.scaleAndAdd,
 );
+export type CubicSplineVec3Value = ICubicSplineValue<Vec3>;
 legacyCC.CubicSplineVec3Value = CubicSplineVec3Value;
 
 export const CubicSplineVec4Value = makeCubicSplineValueConstructor(
     'cc.CubicSplineVec4Value', Vec4, Vec4.multiplyScalar, Vec4.scaleAndAdd,
 );
+export type CubicSplineVec4Value = ICubicSplineValue<Vec4>;
 legacyCC.CubicSplineVec4Value = CubicSplineVec4Value;
 
 export const CubicSplineQuatValue = makeCubicSplineValueConstructor(

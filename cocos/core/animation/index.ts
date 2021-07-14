@@ -41,7 +41,7 @@ legacyCC.easing = easing;
 export * from './bezier';
 export { easing };
 export * from './animation-curve';
-export * from './animation-clip';
+export { AnimationClip } from './animation-clip';
 export * from './animation-manager';
 export {
     AnimationState,

@@ -45,7 +45,7 @@ export function binarySearch (array: number[], value: number) {
  * otherwise, a negative number that is the bitwise complement of the index of the next element that is large than the searched value or,
  * if there is no larger element(include the case that the array is empty), the bitwise complement of array's length.
  */
-export function binarySearchEpsilon (array: number[], value: number, EPSILON = 1e-6) {
+export function binarySearchEpsilon (array: readonly number[], value: number, EPSILON = 1e-6) {
     let low = 0;
     let high = array.length - 1;
     let middle = high >>> 1;
@@ -71,15 +71,15 @@ export function binarySearchEpsilon (array: number[], value: number, EPSILON = 1
  * otherwise, a negative number that is the bitwise complement of the index of the next element that is large than the searched value or,
  * if there is no larger element(include the case that the array is empty), the bitwise complement of array's length.
  */
-export function binarySearchBy<T> (array: T[], value: T, lessThan: (lhs: T, rhs: T) => boolean) {
+export function binarySearchBy<T, U> (array: T[], value: U, lessThan: (lhs: T, rhs: U) => number) {
     let low = 0;
     let high = array.length - 1;
     let middle = high >>> 1;
     for (; low <= high; middle = (low + high) >>> 1) {
         const test = array[middle];
-        if (lessThan(value, test)) {
+        if (lessThan(test, value) < 0) {
             high = middle - 1;
-        } else if (lessThan(test, value)) {
+        } else if (lessThan(test, value) > 0) {
             low = middle + 1;
         } else {
             return middle;

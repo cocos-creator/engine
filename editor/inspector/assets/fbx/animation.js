@@ -695,7 +695,7 @@ exports.methods = {
         const splitInfo = animInfo.splits[this.splitClipIndex];
 
         if (!animInfo) {
-            return;
+            return null;
         }
 
         const rawClipUUID = this.animationNameToUUIDMap.get(animInfo.name);
@@ -719,6 +719,7 @@ exports.methods = {
 
         return {
             rawClipUUID,
+            rawClipIndex: this.rawClipIndex,
             clipUUID,
             duration,
             fps,

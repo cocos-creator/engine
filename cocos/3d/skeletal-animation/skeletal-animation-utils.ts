@@ -272,7 +272,7 @@ export class JointTexturePool {
         if (texture && texture.bounds.has(mesh.hash)) { texture.refCount++; return texture; }
         const { joints, bindposes } = skeleton;
         const clipData = SkelAnimDataHub.getOrExtract(clip);
-        const { frames } = clipData.info;
+        const { frames } = clipData;
         let textureBuffer: Float32Array = null!; let buildTexture = false;
         const jointCount = joints.length;
         if (!texture) {
@@ -394,14 +394,14 @@ export class JointTexturePool {
         const clipData = SkelAnimDataHub.getOrExtract(clip);
         for (let j = 0; j < jointCount; j++) {
             let animPath = joints[j];
-            let source = clipData.data[animPath];
+            let source = clipData.joints[animPath];
             let animNode = skinningRoot.getChildByPath(animPath);
             let downstream: Mat4 | undefined;
             let correctionPath: string | undefined;
             while (!source) {
                 const idx = animPath.lastIndexOf('/');
                 animPath = animPath.substring(0, idx);
-                source = clipData.data[animPath];
+                source = clipData.joints[animPath];
                 if (animNode) {
                     if (!downstream) { downstream = new Mat4(); }
                     Mat4.fromRTS(m4_1, animNode.rotation, animNode.position, animNode.scale);
@@ -447,7 +447,7 @@ export class JointTexturePool {
                 }
             }
             animInfos.push({
-                curveData: source && source.worldMatrix.values as Mat4[], downstream, bindposeIdx, bindposeCorrection,
+                curveData: source && source.transforms, downstream, bindposeIdx, bindposeCorrection,
             });
         }
         return animInfos;

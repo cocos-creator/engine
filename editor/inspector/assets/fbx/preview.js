@@ -333,19 +333,19 @@ const Elements = {
             const timeline = this.$.animationTime;
             timeline.addEventListener('change', this.onAnimationTimeChange.bind(this));
             timeline.addEventListener('transform', this.updateEventInfo.bind(this));
-        }
+        },
     },
     currentTime: {
         ready() {
             const currentTime = this.$.currentTime;
             currentTime.addEventListener('confirm', this.onAnimationTimeChange.bind(this));
-        }
+        },
     },
     timeCtrl: {
         ready() {
             this.$.timeCtrl.addEventListener('click', this.onTimeCtrlClick.bind(this));
-        }
-    }
+        },
+    },
 };
 
 exports.update = async function(assetList, metaList) {
@@ -389,7 +389,7 @@ exports.ready = function() {
 
     this.onEditClipInfoChanged = async (clipInfo) => {
         if (clipInfo) {
-            await Editor.Message.request('scene', 'execute-model-preview-animation-operation', 'setEditClip', clipInfo.rawClipUUID);
+            await Editor.Message.request('scene', 'execute-model-preview-animation-operation', 'setEditClip', clipInfo.rawClipUUID, clipInfo.rawClipIndex);
             this.setCurEditClipInfo(clipInfo);
         }
     };
@@ -438,11 +438,11 @@ exports.close = function() {
 };
 
 exports.methods = {
-    async apply () {
+    async apply() {
         // save animation event info
         await this.events.apply.call(this);
     },
-    async refreshPreview () {
+    async refreshPreview() {
         const panel = this;
 
         // After await, the panel no longer exists
@@ -497,7 +497,7 @@ exports.methods = {
         if (!name || !this.curEditClipInfo) {
             return;
         }
-        switch(name) {
+        switch (name) {
             case 'play':
                 this.onPlayButtonClick();
                 break;
@@ -537,14 +537,14 @@ exports.methods = {
         this.events.update.call(this, eventInfos);
     },
 
-    async stopAnimation () {
+    async stopAnimation() {
         if (!this.curEditClipInfo) {
             return;
         }
 
         await Editor.Message.request('scene', 'execute-model-preview-animation-operation', 'stop');
     },
-    async onPlayButtonClick () {
+    async onPlayButtonClick() {
         if (!this.curEditClipInfo) {
             return;
         }
@@ -564,7 +564,7 @@ exports.methods = {
 
         this.isPreviewDataDirty = true;
     },
-    async onAnimationTimeChange (event) {
+    async onAnimationTimeChange(event) {
         event.stopPropagation();
         if (!this.curEditClipInfo) {
             return;
@@ -582,7 +582,7 @@ exports.methods = {
         await Editor.Message.request('scene', 'execute-model-preview-animation-operation', 'setCurEditTime', curTime);
     },
 
-    onModelAnimationUpdate (time) {
+    onModelAnimationUpdate(time) {
         if (!this.curEditClipInfo) {
             return;
         }

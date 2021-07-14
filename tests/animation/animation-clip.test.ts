@@ -1,6 +1,6 @@
-import { js, Node, Component, Vec3 } from '../../cocos/core';
+import { js, Node, Component, Vec3, RealKeyframeValue } from '../../cocos/core';
 import { AnimationClip, AnimationState, AnimationManager } from '../../cocos/core/animation';
-import { ComponentPath, HierarchyPath } from '../../cocos/core/animation/animation';
+import { ComponentPath, HierarchyPath, IValueProxyFactory, VectorTrack } from '../../cocos/core/animation/animation';
 import { ccclass } from 'cc.decorator';
 
 test('Common target', () => {
@@ -113,6 +113,84 @@ test('Common targets that modify eulerAngles', () => {
     expect(partialNode.eulerAngles.x).toEqual(eulerXValues[1]);
 
     mockInstance.mockRestore();
+});
+
+describe('Custom track setter', () => {
+    class Target {
+        public setValue(value: Target['_value']) { Vec3.copy(this._value, value); }
+        public getValue() { return this._value; }
+        private _value = { x: 0, y: 0, z: 0 };
+    }
+
+    const valueProxyWithOnlySet: IValueProxyFactory = {
+        forTarget: (target: Target) => {
+            return {
+                set: (value: Target['_value']) => { target.setValue(value) },
+            };
+        },
+    };
+
+    const valueProxyWithGetSet: IValueProxyFactory = {
+        forTarget: (target: Target) => {
+            return {
+                set: (value: Target['_value']) => { target.setValue(value) },
+                get: () => target.getValue(),
+            };
+        },
+    };
+
+    test('get() got not called if non of channels is empty', () => {
+        const target = new Target();
+        const mockGetValue = target.getValue = jest.fn(target.getValue);
+        const mockSetValue = target.setValue = jest.fn(target.setValue);
+    
+        const track = new VectorTrack();
+        track.proxy = valueProxyWithGetSet;
+        track.channels().forEach(({ curve }) => {
+            curve.assignSorted([[0.0, new RealKeyframeValue({ value: 0.0 })]]);
+        });
+
+        const clip = new AnimationClip();
+        clip.addTrack(track);
+        const clipEval = clip.createEvaluator({
+            target,
+        });
+        clipEval.evaluate(0.0);
+        expect(mockGetValue).not.toBeCalled();
+        expect(mockSetValue).toBeCalled();
+    });
+
+    test('get() got called if any of channels is empty', () => {
+        const target = new Target();
+        const mockGetValue = target.getValue = jest.fn(target.getValue);
+        const mockSetValue = target.setValue = jest.fn(target.setValue);
+    
+        const track = new VectorTrack();
+        track.proxy = valueProxyWithGetSet;
+        const clip = new AnimationClip();
+        clip.addTrack(track);
+        const clipEval = clip.createEvaluator({
+            target,
+        });
+        clipEval.evaluate(0.0);
+        expect(mockGetValue).toBeCalled();
+        expect(mockSetValue).toBeCalled();
+    });
+
+    test('If get() is not defined, the default channel value would be used', () => {
+        const target = new Target();
+        const mockSetValue = target.setValue = jest.fn(target.setValue);
+    
+        const track = new VectorTrack();
+        track.proxy = valueProxyWithOnlySet;
+        const clip = new AnimationClip();
+        clip.addTrack(track);
+        const clipEval = clip.createEvaluator({
+            target,
+        });
+        clipEval.evaluate(0.0);
+        expect(mockSetValue).toBeCalled();
+    });
 });
 
 test('animation state', () => {

@@ -30,8 +30,7 @@
 
 import { Vec3, Quat } from '../../core/math';
 import { Node } from '../../core/scene-graph';
-import { AnimationState } from '../../core/animation/animation-state';
-import { IBoundTarget } from '../../core/animation/bound-target';
+import { RuntimeBinding } from '../../core/animation/tracks/track';
 
 export class BlendStateBuffer {
     private _nodeBlendStates: Map<Node, NodeBlendState> = new Map();
@@ -41,7 +40,7 @@ export class BlendStateBuffer {
         property: P,
         host: BlendStateWriterHost,
         constants: boolean,
-    ): Omit<BlendStateWriterInternal<P>, 'node' | 'property'> {
+    ): BlendStateWriter<P> {
         const propertyBlendState = this.ref(node, property);
         return new BlendStateWriterInternal<P>(
             node,
@@ -89,7 +88,7 @@ export interface BlendStateWriterHost {
     readonly weight: number;
 }
 
-class BlendStateWriterInternal<P extends BlendingProperty> implements IBoundTarget {
+class BlendStateWriterInternal<P extends BlendingProperty> implements RuntimeBinding {
     constructor (
         private _node: Node,
         private _property: P,
@@ -124,7 +123,7 @@ class BlendStateWriterInternal<P extends BlendingProperty> implements IBoundTarg
 
 export type BlendStateWriter<P extends BlendingProperty> = Omit<BlendStateWriterInternal<P>, 'node' | 'property'>;
 
-type BlendingProperty = keyof NodeBlendState['_properties'];
+export type BlendingProperty = keyof NodeBlendState['_properties'];
 
 type BlendingPropertyValue<P extends BlendingProperty> = NonNullable<NodeBlendState['_properties'][P]>['blendedValue'];
 
