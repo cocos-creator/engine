@@ -372,7 +372,7 @@ export class Root {
             this._scenes[i].onGlobalPipelineStateChanged();
         }
 
-        this._pipeline!.pipelineSceneData.initDeferredPassInfo();
+        this._pipeline!.pipelineSceneData.onGlobalPipelineStateChanged();
     }
 
     /**

@@ -32,8 +32,6 @@ import { IRenderObject } from './define';
 import { Device, Framebuffer } from '../gfx';
 import { RenderPipeline } from './render-pipeline';
 import { Light } from '../renderer/scene/light';
-import { builtinResMgr } from '../builtin/builtin-res-mgr';
-import { Material } from '../assets';
 import { NativePipelineSharedSceneData } from '../renderer/scene';
 
 export class PipelineSceneData {
@@ -79,13 +77,13 @@ export class PipelineSceneData {
     public get fpScale () {
         return this._fpScale;
     }
-
     public set fpScale (val: number) {
         this._fpScale = val;
         if (JSB) {
             this._fpScale = val;
         }
     }
+
     public fog: Fog = new Fog();
     public ambient: Ambient = new Ambient();
     public skybox: Skybox = new Skybox();
@@ -110,42 +108,13 @@ export class PipelineSceneData {
         this.fpScale = 1.0 / 1024.0;
     }
 
-    public initDeferredPassInfo () {
-        const builinDeferred = builtinResMgr.get<Material>('builtin-deferred-material');
-        if (builinDeferred) {
-            const passLit = builinDeferred.passes[0];
-            passLit.beginChangeStatesSilently();
-            passLit.tryCompile();
-            passLit.endChangeStatesSilently();
-        }
-
-        const builtinPostProcess = builtinResMgr.get<Material>('builtin-post-process-material');
-        if (builtinPostProcess) {
-            const passPost = builtinPostProcess.passes[0];
-            passPost.beginChangeStatesSilently();
-            passPost.tryCompile();
-            passPost.endChangeStatesSilently();
-        }
-
-        if (builinDeferred && JSB) {
-            const passLit = builinDeferred.passes[0];
-            this._nativeObj!.deferredLightPassShader = passLit.getShaderVariant();
-            this._nativeObj!.deferredLightPass = passLit.native;
-        }
-
-        if (builtinPostProcess && JSB) {
-            const passPost = builtinPostProcess.passes[0];
-            const shaderHandle = passPost.getShaderVariant();
-            this._nativeObj!.deferredPostPassShader = passPost.getShaderVariant();
-            this._nativeObj!.deferredPostPass = passPost.native;
-        }
-    }
-
     public activate (device: Device, pipeline: RenderPipeline) {
         this._device = device;
         this._pipeline = pipeline;
-        this.initDeferredPassInfo();
         return true;
+    }
+
+    public onGlobalPipelineStateChanged () {
     }
 
     public destroy () {

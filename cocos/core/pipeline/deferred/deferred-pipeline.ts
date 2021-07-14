@@ -28,25 +28,28 @@
  */
 
 import { ccclass, displayOrder, type, serializable } from 'cc.decorator';
+import { EDITOR } from 'internal:constants';
 import { genSamplerHash, samplerLib } from '../../renderer/core/sampler-lib';
 import { builtinResMgr } from '../../builtin/builtin-res-mgr';
 import { Texture2D } from '../../assets/texture-2d';
 import { RenderPipeline, IRenderPipelineInfo } from '../render-pipeline';
 import { GbufferFlow } from './gbuffer-flow';
 import { LightingFlow } from './lighting-flow';
-import { RenderTextureConfig, MaterialConfig } from '../pipeline-serialization';
+import { RenderTextureConfig } from '../pipeline-serialization';
 import { ShadowFlow } from '../shadow/shadow-flow';
 import { BufferUsageBit, Format, MemoryUsageBit, ClearFlagBit, ClearFlags, StoreOp, Filter, Address,
     SurfaceTransform, ColorAttachment, DepthStencilAttachment, RenderPass, LoadOp,
     RenderPassInfo, BufferInfo, Texture, InputAssembler, InputAssemblerInfo, Attribute, Buffer, AccessType, Framebuffer,
     TextureInfo, TextureType, TextureUsageBit, FramebufferInfo, Rect } from '../../gfx';
 import { UBOGlobal, UBOCamera, UBOShadow, UNIFORM_SHADOWMAP_BINDING, UNIFORM_SPOT_LIGHTING_MAP_TEXTURE_BINDING, UNIFORM_GBUFFER_ALBEDOMAP_BINDING,
-    UNIFORM_GBUFFER_POSITIONMAP_BINDING, UNIFORM_GBUFFER_NORMALMAP_BINDING, UNIFORM_GBUFFER_EMISSIVEMAP_BINDING,
-    UNIFORM_LIGHTING_RESULTMAP_BINDING } from '../define';
+    UNIFORM_GBUFFER_POSITIONMAP_BINDING, UNIFORM_GBUFFER_NORMALMAP_BINDING, UNIFORM_GBUFFER_EMISSIVEMAP_BINDING, UNIFORM_LIGHTING_RESULTMAP_BINDING } from '../define';
 import { SKYBOX_FLAG } from '../../renderer/scene/camera';
 import { Camera } from '../../renderer/scene';
-import { errorID } from '../../platform/debug';
+import { errorID, warnID } from '../../platform/debug';
 import { sceneCulling } from '../scene-culling';
+import { DeferredPipelineSceneData } from './deferred-pipeline-scene-data';
+
+const PIPELINE_TYPE = 1;
 
 const _samplerInfo = [
     Filter.POINT,
@@ -95,11 +98,6 @@ export class DeferredPipeline extends RenderPipeline {
     @serializable
     @displayOrder(2)
     protected renderTextures: RenderTextureConfig[] = [];
-
-    @type([MaterialConfig])
-    @serializable
-    @displayOrder(3)
-    protected materials: MaterialConfig[] = [];
     protected _renderPasses = new Map<ClearFlags, RenderPass>();
 
     /**
@@ -135,7 +133,10 @@ export class DeferredPipeline extends RenderPipeline {
     }
 
     public activate (): boolean {
-        this._macros.CC_PIPELINE_TYPE = 1;
+        if (EDITOR) { warnID(1219); }
+
+        this._macros = { CC_PIPELINE_TYPE: PIPELINE_TYPE };
+        this._pipelineSceneData = new DeferredPipelineSceneData();
 
         if (!super.activate()) {
             return false;

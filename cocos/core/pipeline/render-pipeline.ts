@@ -150,9 +150,9 @@ export abstract class RenderPipeline extends Asset {
     protected _descriptorSet!: DescriptorSet;
     protected _commandBuffers: CommandBuffer[] = [];
     protected _pipelineUBO = new PipelineUBO();
-    protected _pipelineSceneData = new PipelineSceneData();
     protected _macros: MacroRecord = {};
     protected _constantMacros = '';
+    protected declare _pipelineSceneData: PipelineSceneData;
 
     /**
      * @en The initialization process, user shouldn't use it in most case, only useful when need to generate render pipeline programmatically.
