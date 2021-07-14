@@ -28,7 +28,7 @@
  * @module particle
  */
 
-import { ccclass, tooltip, displayOrder, type, formerlySerializedAs, serializable } from 'cc.decorator';
+import { ccclass, tooltip, displayOrder, type, formerlySerializedAs, serializable, visible } from 'cc.decorator';
 import { Mat4, Quat, Vec2, Vec3, clamp, pingPong, random, randomRange, repeat, toDegree, toRadian } from '../../core/math';
 
 import CurveRange from '../animator/curve-range';
@@ -233,6 +233,7 @@ export default class ShapeModule {
     /**
      * @zh 控制可能产生粒子的弧周围的离散间隔。
      */
+    @visible(function noArc (this: ShapeModule) { return this.arcMode !== ArcMode.Random; }) // Bug fix: Hide this input when arcMode is random
     @serializable
     @displayOrder(9)
     @tooltip('i18n:shapeModule.arcSpread')
@@ -242,6 +243,7 @@ export default class ShapeModule {
      * @zh 粒子沿圆周发射的速度。
      */
     @type(CurveRange)
+    @visible(function noArc (this: ShapeModule) { return this.arcMode !== ArcMode.Random; }) // Bug fix: Hide this input when arcMode is random
     @serializable
     @displayOrder(10)
     @tooltip('i18n:shapeModule.arcSpeed')

@@ -29,7 +29,7 @@
  * @module particle2d
  */
 
-import { ccclass, editable, type, menu, executeInEditMode, serializable, playOnFocus, tooltip } from 'cc.decorator';
+import { ccclass, editable, type, menu, executeInEditMode, serializable, playOnFocus, tooltip, visible, formerlySerializedAs } from 'cc.decorator';
 import { EDITOR } from 'internal:constants';
 import { Renderable2D } from '../2d/framework/renderable-2d';
 import { Color, Vec2 } from '../core/math';
@@ -353,6 +353,14 @@ export class ParticleSystem2D extends Renderable2D {
         this._startColorVar.a = val.a;
     }
 
+    @visible(() => false)
+    set color (value) {
+    }
+
+    get color (): Readonly<Color> {
+        return this._color;
+    }
+
     /**
      * @en Ending color of each particle.
      * @zh 粒子结束颜色。
@@ -506,6 +514,20 @@ export class ParticleSystem2D extends Renderable2D {
     public set positionType (val) {
         this._positionType = val;
         this._updateMaterial();
+    }
+
+    /**
+     * @en Preview particle system effect.
+     * @ch 查看粒子效果
+     */
+    @editable
+    public get preview () {
+        return this._preview;
+    }
+
+    public set preview (val: boolean) {
+        if (val) { this._startPreview(); } else { this._stopPreview(); }
+        this._preview = val;
     }
 
     /**
@@ -695,10 +717,10 @@ export class ParticleSystem2D extends Renderable2D {
      * @en Play particle in edit mode.
      * @zh 在编辑器模式下预览粒子，启用后选中粒子时，粒子将自动播放。
      */
-    @serializable
+    @formerlySerializedAs('preview')
     @editable
     @tooltip('i18n:particle_system.preview')
-    private preview = true;
+    private _preview = true;
     @serializable
     private _custom = false;
     @serializable
@@ -723,6 +745,8 @@ export class ParticleSystem2D extends Renderable2D {
     private declare _focused: boolean;
     private declare _plistFile;
     private declare _tiffReader;
+
+    private _dict: any = null;
 
     constructor () {
         super();
@@ -769,13 +793,13 @@ export class ParticleSystem2D extends Renderable2D {
     }
 
     private _startPreview () {
-        if (this.preview) {
+        if (this._preview) {
             this.resetSystem();
         }
     }
 
     private _stopPreview () {
-        if (this.preview) {
+        if (this._preview) {
             this.resetSystem();
             this.stopSystem();
         }
@@ -975,6 +999,8 @@ export class ParticleSystem2D extends Renderable2D {
 
     // parsing process
     public _initWithDictionary (dict: any) {
+        this._dict = dict;
+
         this.totalParticles = parseInt(dict.maxParticles || 0);
 
         // life span
@@ -1119,7 +1145,7 @@ export class ParticleSystem2D extends Renderable2D {
 
     public _finishedSimulation () {
         if (EDITOR) {
-            if (this.preview && this._focused && !this.active /* && !cc.engine.isPlaying */) {
+            if (this._preview && this._focused && !this.active /* && !cc.engine.isPlaying */) {
                 this.resetSystem();
             }
             return;
@@ -1137,6 +1163,12 @@ export class ParticleSystem2D extends Renderable2D {
     }
 
     protected _render (render: Batcher2D) {
-        render.commitComp(this, this._renderSpriteFrame, this._assembler!, this._positionType === PositionType.RELATIVE ? this.node.parent : null);
+        if (this._positionType === PositionType.RELATIVE) {
+            render.commitComp(this, this._renderSpriteFrame, this._assembler!, this.node.parent);
+        } else if (this.positionType === PositionType.GROUPED) {
+            render.commitComp(this, this._renderSpriteFrame, this._assembler!, this.node);
+        } else {
+            render.commitComp(this, this._renderSpriteFrame, this._assembler!, null);
+        }
     }
 }

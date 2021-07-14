@@ -102,6 +102,8 @@ const _matInsInfo: IMaterialInstanceInfo = {
 export default class ParticleSystemRendererGPU extends ParticleSystemRendererBase {
     private _defines: MacroRecord;
     private _frameTile_velLenScale: Vec4;
+    private _unifrom_velLenScale: Vec4;
+    private _tmp_velLenScale: Vec4;
     private _node_scale: Vec4;
     protected _vertAttrs: Attribute[] = [];
     protected _defaultMat: Material | null = null;
@@ -121,6 +123,8 @@ export default class ParticleSystemRendererGPU extends ParticleSystemRendererBas
         super(info);
 
         this._frameTile_velLenScale = new Vec4(1, 1, 0, 0);
+        this._unifrom_velLenScale = this._frameTile_velLenScale.clone();
+        this._tmp_velLenScale = this._frameTile_velLenScale.clone();
         this._node_scale = new Vec4();
         this._defines = {
             CC_USE_WORLD_SPACE: true,
@@ -251,7 +255,7 @@ export default class ParticleSystemRendererGPU extends ParticleSystemRendererBas
         this._uRotHandle = pass.getHandle('u_worldRot');
 
         pass.setUniform(pass.getHandle('scale'), this._node_scale);
-        pass.setUniform(pass.getHandle('frameTile_velLenScale'), this._frameTile_velLenScale);
+        pass.setUniform(pass.getHandle('frameTile_velLenScale'), this._unifrom_velLenScale);
         _tempVec4.x = _sample_num;
         _tempVec4.y = _sample_interval;
         pass.setUniform(pass.getHandle('u_sampleInfo'), _tempVec4);
@@ -456,6 +460,11 @@ export default class ParticleSystemRendererGPU extends ParticleSystemRendererBas
         const textureModule = ps._textureAnimationModule;
         if (textureModule && textureModule.enable) {
             Vec2.set(this._frameTile_velLenScale, textureModule.numTilesX, textureModule.numTilesY);
+            Vec4.copy(this._unifrom_velLenScale, this._frameTile_velLenScale);
+        } else {
+            this._tmp_velLenScale.z = this._frameTile_velLenScale.z;
+            this._tmp_velLenScale.w = this._frameTile_velLenScale.w;
+            Vec4.copy(this._unifrom_velLenScale, this._tmp_velLenScale);
         }
 
         this.initShaderUniform(mat!);
