@@ -57,7 +57,7 @@ import { errorID, error, assertID, warnID } from './platform/debug';
  * `director` is a singleton object which manage your game's logic flow.
  * Since the `director` is a singleton, you don't need to call any constructor or create functions,
  * the standard way to use it is by calling:
- * `director.methodName();` 
+ * `director.methodName();`
  * It creates and handle the main Window and manages how and when to execute the Scenes.
  *
  * @zh
@@ -453,6 +453,9 @@ export class Director extends EventTarget {
             this._root.resetCumulativeTime();
         }
         this.startAnimation();
+        if (legacyCC._widgetManager) {
+            legacyCC._widgetManager.initScene();
+        }
         if (onLaunched) {
             onLaunched(null, scene);
         }

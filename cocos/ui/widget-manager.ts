@@ -467,6 +467,9 @@ export const widgetManager = legacyCC._widgetManager = {
     updateAlignment,
     AlignMode,
     AlignFlags,
+    initScene () {
+        refreshScene();
+    },
 };
 
 director.on(Director.EVENT_INIT, () => {

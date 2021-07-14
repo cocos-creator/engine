@@ -923,7 +923,7 @@ export class Widget extends Component {
     }
 
     protected _setDirtyByMode () {
-        if (this.alignMode === AlignMode.ALWAYS) {
+        if (this.alignMode === AlignMode.ALWAYS || EDITOR) {
             this._recursiveDirty();
         }
     }
