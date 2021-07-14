@@ -29,7 +29,7 @@
  */
 
 import { EDITOR, DEV, TEST, SUPPORT_JIT } from 'internal:constants';
-import { CCObject, isValid } from '../data/object';
+import { CCObject, distributedManager, isValid } from '../data/object';
 import { array, Pool } from '../utils/js';
 import { tryCatchFunctor_EDITOR } from '../utils/misc';
 import { invokeOnEnable, createInvokeImpl, createInvokeImplJit, OneOffInvoker, LifeCycleInvoker } from './component-scheduler';
@@ -250,6 +250,12 @@ export default class NodeActivator {
             }
             legacyCC.director._compScheduler.enableComp(comp, onEnableInvoker);
         }
+
+        // Distributed creation
+        if (comp.replicated) {
+            distributedManager.fireObjectCreateEvent(comp);
+            distributedManager.fireAddComponentEvent(comp.node, comp);
+        }
     }
 
     /**
@@ -279,6 +285,11 @@ export default class NodeActivator {
         }
 
         node._activeInHierarchy = true;
+
+        // Distributed creation
+        if (node.replicated) {
+            distributedManager.fireObjectCreateEvent(node);
+        }
 
         // component maybe added during onEnable, and the onEnable of new component is already called
         // so we should record the origin length

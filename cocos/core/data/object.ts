@@ -28,12 +28,13 @@
  * @module core/data
  */
 
-import { SUPPORT_JIT, EDITOR, TEST, DEBUG } from 'internal:constants';
+import { SUPPORT_JIT, EDITOR, TEST } from 'internal:constants';
 import * as js from '../utils/js';
 import { CCClass } from './class';
 import { errorID, warnID } from '../platform/debug';
 import { legacyCC } from '../global-exports';
 import { EditorExtendableObject, editorExtrasTag } from './editor-extras-tag';
+import { DistributedManager } from '../distributed/distributed-manager';
 
 // definitions for CCObject.Flags
 
@@ -47,7 +48,6 @@ const DontDestroy = 1 << 6;
 const Destroying = 1 << 7;
 const Deactivating = 1 << 8;
 const LockedInEditor = 1 << 9;
-// var HideInGame = 1 << 9;
 const HideInHierarchy = 1 << 10;
 
 const IsOnEnableCalled = 1 << 11;
@@ -62,6 +62,10 @@ const IsScaleLocked = 1 << 18;
 const IsAnchorLocked = 1 << 19;
 const IsSizeLocked = 1 << 20;
 const IsPositionLocked = 1 << 21;
+
+// Online game
+const IsReplicated = 1 << 22;
+const IsClientLoad = 1 << 23;
 
 // var Hide = HideInGame | HideInEditor;
 // should not clone or serialize these flags
@@ -193,24 +197,28 @@ class CCObject implements EditorExtendableObject {
 
     public declare [editorExtrasTag]: unknown;
 
-    public _objFlags: number;
+    /**
+     * @default 0
+     * @private
+     */
+    public _objFlags: number = 0;
     protected _name: string;
+    protected _id: string = '';
 
     constructor (name = '') {
-        /**
-         * @default ""
-         * @private
-         */
         this._name = name;
-
-        /**
-         * @default 0
-         * @private
-         */
-        this._objFlags = 0;
     }
 
     // MEMBER
+
+    /**
+     * @en Global unique identify
+     * @zh 全局唯一标识符
+     * @readOnly
+     */
+    get uuid () {
+        return this._id;
+    }
 
     /**
      * @en The name of the object.
@@ -238,6 +246,30 @@ class CCObject implements EditorExtendableObject {
     }
     public get hideFlags () {
         return this._objFlags & CCObject.Flags.AllHideMasks;
+    }
+
+    public set replicated (value: boolean) {
+        if (value) {
+            this._objFlags |= IsReplicated;
+        }
+        else {
+            this._objFlags &= ~IsReplicated;
+        }
+    }
+    public get replicated () {
+        return !!(this._objFlags & IsReplicated);
+    }
+
+    public set clientLoad (value: boolean) {
+        if (value) {
+            this._objFlags |= IsClientLoad;
+        }
+        else {
+            this._objFlags &= ~IsClientLoad;
+        }
+    }
+    public get clientLoad () {
+        return !!(this._objFlags & IsClientLoad);
     }
 
     /**
@@ -582,6 +614,9 @@ declare namespace CCObject {
         IsScaleLocked,
         IsAnchorLocked,
         IsSizeLocked,
+        
+        IsReplicated,
+        IsClientLoad,
     }
 
     // for @ccclass
@@ -635,5 +670,10 @@ if (EDITOR || TEST) {
     });
 }
 
+const distributedManager = new DistributedManager();
+
 legacyCC.Object = CCObject;
-export { CCObject };
+export {
+    CCObject,
+    distributedManager,
+};

@@ -32,7 +32,7 @@ import { ccclass, editable, serializable } from 'cc.decorator';
 import { DEV, DEBUG, EDITOR } from 'internal:constants';
 import { Component } from '../components/component';
 import { property } from '../data/decorators/property';
-import { CCObject } from '../data/object';
+import { CCObject, distributedManager } from '../data/object';
 import { Event } from '../event';
 import { errorID, warnID, error, log, getError } from '../platform/debug';
 import { ISchedulable } from '../scheduler';
@@ -126,15 +126,6 @@ export class BaseNode extends CCObject implements ISchedulable {
             return;
         }
         this._name = value;
-    }
-
-    /**
-     * @en The uuid for editor, will be stripped after building project.
-     * @zh 主要用于编辑器的 uuid，在编辑器下可用于持久化存储，在项目构建之后将变成自增的 id。
-     * @readOnly
-     */
-    get uuid () {
-        return this._id;
     }
 
     /**
@@ -915,7 +906,6 @@ export class BaseNode extends CCObject implements ISchedulable {
         }
 
         // get component
-
         let constructor: Constructor<T> | null | undefined;
         if (typeof typeOrClassName === 'string') {
             constructor = js.getClassByName(typeOrClassName) as Constructor<T> | undefined;
@@ -933,7 +923,6 @@ export class BaseNode extends CCObject implements ISchedulable {
         }
 
         // check component
-
         if (typeof constructor !== 'function') {
             throw TypeError(getError(3809));
         }
@@ -946,7 +935,6 @@ export class BaseNode extends CCObject implements ISchedulable {
         }
 
         // check requirement
-
         const ReqComp = (constructor as typeof constructor & { _requireComponent?: typeof Component })._requireComponent;
         if (ReqComp && !this.getComponent(ReqComp)) {
             this.addComponent(ReqComp);
@@ -958,8 +946,7 @@ export class BaseNode extends CCObject implements ISchedulable {
         //    return null;
         // }
 
-        //
-
+        // Construct component
         const component = new constructor();
         component.node = (this as unknown as Node); // TODO: HACK here
         this._components.push(component);
@@ -1025,6 +1012,11 @@ export class BaseNode extends CCObject implements ISchedulable {
             componentInstance = this.getComponent(component);
         }
         if (componentInstance) {
+            // Distributed destroy, the node may never be registered to the distributed manager
+            if (this.replicated) {
+                distributedManager.fireRemoveComponentEvent(this, componentInstance);
+            }
+
             componentInstance.destroy();
         }
     }
@@ -1289,6 +1281,11 @@ export class BaseNode extends CCObject implements ISchedulable {
         cloned._parent = null;
         cloned._onBatchCreated(isSyncedNode);
 
+        // Distributed instantiate prefab
+        if (this.replicated && newPrefabInfo && newPrefabInfo.asset) {
+            distributedManager.firePrefabInstantiate(cloned, newPrefabInfo.asset);
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return cloned;
     }
@@ -1325,6 +1322,11 @@ export class BaseNode extends CCObject implements ISchedulable {
     }
 
     protected _onPreDestroyBase () {
+        // Distributed destroy, the node may never be registered to the distributed manager
+        if (this.replicated) {
+            distributedManager.fireObjectDestroyEvent(this);
+        }
+
         // marked as destroying
         this._objFlags |= Destroying;
 

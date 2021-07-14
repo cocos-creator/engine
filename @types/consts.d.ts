@@ -110,5 +110,13 @@ declare module 'internal:constants' {
      */
     export const RUNTIME_BASED: boolean;
 
+    /**
+     * Environment support JIT, currently iOS native and mini game doesn't support JIT
+     */
     export const SUPPORT_JIT: boolean;
+
+    /**
+     * Running in server mode.
+     */
+    export const SERVER_MODE: boolean;
 }

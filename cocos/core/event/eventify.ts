@@ -33,7 +33,7 @@ import { createMap } from '../utils/js';
 
 type Constructor<T = {}> = new (...args: any[]) => T;
 
-type EventType = string;
+type EventType = string | number;
 
 /**
  * @zh

@@ -195,7 +195,7 @@ export class CallbacksInvoker {
      * @param target - Callback callee
      * @param once - Whether invoke the callback only once (and remove it)
      */
-    public on (key: string, callback: AnyFunction, target?: unknown, once?: boolean) {
+    public on (key: string | number, callback: AnyFunction, target?: unknown, once?: boolean) {
         if (!this.hasEventListener(key, callback, target)) {
             let list = this._callbackTable[key];
             if (!list) {
@@ -215,7 +215,7 @@ export class CallbacksInvoker {
      * @param callback - Callback function when event triggered
      * @param target - Callback callee
      */
-    public hasEventListener (key: string, callback?: AnyFunction, target?: unknown) {
+    public hasEventListener (key: string | number, callback?: AnyFunction, target?: unknown) {
         const list = this._callbackTable && this._callbackTable[key];
         if (!list) {
             return false;
@@ -251,17 +251,18 @@ export class CallbacksInvoker {
      * @en Removes all callbacks registered in a certain event type or all callbacks registered with a certain target
      * @param keyOrTarget - The event type or target with which the listeners will be removed
      */
-    public removeAll (keyOrTarget: string | unknown) {
-        if (typeof keyOrTarget === 'string') {
+    public removeAll (keyOrTarget: string | number | unknown) {
+        const type = typeof keyOrTarget;
+        if (type === 'string' || type === 'number') {
             // remove by key
-            const list = this._callbackTable && this._callbackTable[keyOrTarget];
+            const list = this._callbackTable && this._callbackTable[keyOrTarget as string|number];
             if (list) {
                 if (list.isInvoking) {
                     list.cancelAll();
                 } else {
                     list.clear();
                     callbackListPool.free(list);
-                    delete this._callbackTable[keyOrTarget];
+                    delete this._callbackTable[keyOrTarget as string|number];
                 }
             }
         } else if (keyOrTarget) {
@@ -290,7 +291,7 @@ export class CallbacksInvoker {
      * @param callback - The callback function of the event listener, if absent all event listeners for the given type will be removed
      * @param target - The callback callee of the event listener
      */
-    public off (key: string, callback?: AnyFunction, target?: unknown) {
+    public off (key: string | number, callback?: AnyFunction, target?: unknown) {
         const list = this._callbackTable && this._callbackTable[key];
         if (list) {
             const infos = list.callbackInfos;
@@ -318,7 +319,7 @@ export class CallbacksInvoker {
      * @param arg3 - The fourth argument to be passed to the callback
      * @param arg4 - The fifth argument to be passed to the callback
      */
-    public emit (key: string, arg0?: any, arg1?: any, arg2?: any, arg3?: any, arg4?: any) {
+    public emit (key: string | number, arg0?: any, arg1?: any, arg2?: any, arg3?: any, arg4?: any) {
         const list: CallbackList = this._callbackTable && this._callbackTable[key]!;
         if (list) {
             const rootInvoker = !list.isInvoking;

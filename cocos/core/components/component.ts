@@ -30,9 +30,9 @@
  */
 
 import { ccclass, tooltip, displayName, type, serializable, disallowAnimation } from 'cc.decorator';
-import { EDITOR, TEST, DEV } from 'internal:constants';
+import { EDITOR, TEST } from 'internal:constants';
 import { Script } from '../assets/scripts';
-import { CCObject } from '../data/object';
+import { CCObject, distributedManager } from '../data/object';
 import IDGenerator from '../utils/id-generator';
 import { getClassName, value } from '../utils/js';
 import { RenderScene } from '../renderer/scene/render-scene';
@@ -74,20 +74,6 @@ class Component extends CCObject {
     }
     set name (value) {
         this._name = value;
-    }
-
-    /**
-     * @en The uuid for editor.
-     * @zh 组件的 uuid，用于编辑器。
-     * @readOnly
-     * @example
-     * ```ts
-     * import { log } from 'cc';
-     * log(comp.uuid);
-     * ```
-     */
-    get uuid () {
-        return this._id;
     }
 
     @displayName('Script')
@@ -369,6 +355,11 @@ class Component extends CCObject {
     }
 
     public _onPreDestroy () {
+        // Distributed destroy, the node may never be registered to the distributed manager
+        if (this.replicated) {
+            distributedManager.fireObjectDestroyEvent(this);
+        }
+
         // Schedules
         this.unscheduleAllCallbacks();
 
