@@ -39,6 +39,7 @@ import { CompleteCallback, CompleteCallbackNoData, IBundleOptions, IDownloadPars
 import { retry, RetryFunction, urlAppendTimestamp } from './utilities';
 import { legacyCC } from '../global-exports';
 import { IConfigOption } from './config';
+import { CCON, parseCCONJson, decodeCCONBinary } from '../data/ccon';
 
 export type DownloadHandler = (url: string, opitons: IDownloadParseOptions, onComplete: CompleteCallback) => void;
 
@@ -72,6 +73,46 @@ const downloadJson = (url: string, options: IDownloadParseOptions, onComplete: C
 const downloadArrayBuffer = (url: string, options: IDownloadParseOptions, onComplete: CompleteCallback) => {
     options.xhrResponseType = 'arraybuffer';
     downloadFile(url, options, options.onFileProgress, onComplete);
+};
+
+const downloadCCON = (url: string, options: IDownloadParseOptions, onComplete: CompleteCallback<CCON>) => {
+    downloadJson(url, options, (err, json) => {
+        if (err) {
+            onComplete(err);
+            return;
+        }
+        const cconPreface = parseCCONJson(json);
+        const chunkPromises = Promise.all(cconPreface.chunks.map((chunk) => new Promise<Uint8Array>((resolve, reject) => {
+            downloadArrayBuffer(`${url}${chunk}`, {}, (errChunk, chunkBuffer) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(new Uint8Array(chunkBuffer));
+                }
+            });
+        })));
+        chunkPromises.then((chunks) => {
+            const ccon = new CCON(cconPreface.document, chunks);
+            onComplete(null, ccon);
+        }).catch((err) => {
+            onComplete(err);
+        });
+    });
+};
+
+const downloadCCOBN = (url: string, options: IDownloadParseOptions, onComplete: CompleteCallback<CCON>) => {
+    downloadArrayBuffer(url, options, (err, json) => {
+        if (err) {
+            onComplete(err);
+            return;
+        }
+        try {
+            const ccon = decodeCCONBinary(json);
+            onComplete(null, ccon);
+        } catch (err) {
+            onComplete(err);
+        }
+    });
 };
 
 const downloadText = (url: string, options: IDownloadParseOptions, onComplete: CompleteCallback) => {
@@ -229,6 +270,9 @@ export class Downloader {
         '.json': downloadJson,
         '.ExportJson': downloadJson,
         '.plist': downloadText,
+
+        '.ccon': downloadCCON,
+        '.ccobn': downloadCCOBN,
 
         '.fnt': downloadText,
 

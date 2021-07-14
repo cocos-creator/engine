@@ -1,0 +1,28 @@
+[
+  {
+    "selfCircularReference": {
+      "__id__": 1
+    },
+    "ccClassIndirectCircularReference": {
+      "__id__": 2
+    }
+  },
+  {
+    "__type__": "ciculer-reference.CCClassSelfCircularReference",
+    "me": {
+      "__id__": 1
+    }
+  },
+  {
+    "__type__": "ciculer-reference.CCClassIndirectCircularReferenceFoo",
+    "bar": {
+      "__id__": 3
+    }
+  },
+  {
+    "__type__": "ciculer-reference.CCClassIndirectCircularReferenceBar",
+    "foo": {
+      "__id__": 2
+    }
+  }
+]

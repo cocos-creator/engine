@@ -43,3 +43,10 @@ export { instantiate } from './instantiate';
 export { CCInteger, CCFloat, CCBoolean, CCString } from './utils/attribute';
 export { CompactValueTypeArray } from './utils/compact-value-type-array';
 export { editorExtrasTag } from './editor-extras-tag';
+export { deserializeTag, serializeTag } from './custom-serializable';
+export type {
+    SerializationInput,
+    SerializationOutput,
+    SerializationContext,
+    CustomSerializable,
+} from './custom-serializable';

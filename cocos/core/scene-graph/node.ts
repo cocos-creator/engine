@@ -31,7 +31,7 @@
 import {
     ccclass, editable, serializable, type,
 } from 'cc.decorator';
-import { JSB } from 'internal:constants';
+import { EDITOR, JSB } from 'internal:constants';
 import { Layers } from './layers';
 import { NodeUIProperties } from './node-ui-properties';
 import { eventManager } from '../platform/event-manager/event-manager';
@@ -46,6 +46,7 @@ import { Component } from '../components';
 import { NativeNode } from '../renderer/scene/native-scene';
 import { FloatArray } from '../math/type-define';
 import { NodeEventType } from './node-event';
+import { CustomSerializable, deserializeTag, editorExtrasTag, SerializationContext, SerializationInput, SerializationOutput, serializeTag } from '../data';
 
 const v3_a = new Vec3();
 const q_a = new Quat();
@@ -109,6 +110,8 @@ class BookOfChange {
 
 const bookOfChange = new BookOfChange();
 
+const reserveContentsForAllSyncablePrefabTag = Symbol('ReserveContentsForAllSyncablePrefab');
+
 /**
  * @zh
  * 场景树中的基本节点，基本特性有：
@@ -132,7 +135,7 @@ const bookOfChange = new BookOfChange();
  * * 维护 3D 空间左边变换（坐标、旋转、缩放）信息
  */
 @ccclass('cc.Node')
-export class Node extends BaseNode {
+export class Node extends BaseNode implements CustomSerializable {
     /**
      * @en Event types emitted by Node
      * @zh 节点可能发出的事件类型
@@ -157,6 +160,11 @@ export class Node extends BaseNode {
      * @zh 节点变换更新的具体部分，可用于判断 [[NodeEventType.TRANSFORM_CHANGED]] 事件的具体类型
      */
     public static TransformBit = TransformBit;
+
+    /**
+     * @internal
+     */
+    public static reserveContentsForAllSyncablePrefabTag = reserveContentsForAllSyncablePrefabTag;
 
     // UI 部分的脏数据
     public _uiProps = new NodeUIProperties(this);
@@ -472,6 +480,42 @@ export class Node extends BaseNode {
         this._hasChangedFlagsChunk[this._hasChangedFlagsOffset] = val;
         if (JSB) {
             this._nativeFlag[0] = val;
+        }
+    }
+
+    public [serializeTag] (serializationOutput: SerializationOutput, context: SerializationContext) {
+        if (!EDITOR) {
+            serializationOutput.writeThis();
+            return;
+        }
+
+        // Detects if this node is mounted node of `PrefabInstance`
+        // TODO: optimize
+        const isMountedChild = () => !!(this[editorExtrasTag] as any)?.mountedRoot;
+
+        // Returns if this node is under `PrefabInstance`
+        // eslint-disable-next-line arrow-body-style
+        const isSyncPrefab = () => {
+            // 1. Under `PrefabInstance`, but not mounted
+            // 2. If the mounted node is a `PrefabInstance`, it's also a "sync prefab".
+            return this._prefab?.root?._prefab?.instance && (this?._prefab?.instance || !isMountedChild());
+        };
+
+        const canDiscardByPrefabRoot = () => !(context.customArguments[(reserveContentsForAllSyncablePrefabTag) as any]
+            || !isSyncPrefab() || context.root === this);
+
+        if (canDiscardByPrefabRoot()) {
+            // discard props disallow to synchronize
+            const isRoot = this._prefab?.root === this;
+            if (isRoot) {
+                serializationOutput.writeProperty('_objFlags', this._objFlags);
+                serializationOutput.writeProperty('_parent', this._parent);
+                serializationOutput.writeProperty('_prefab', this._prefab);
+            } else {
+                // should not serialize child node of synchronizable prefab
+            }
+        } else {
+            serializationOutput.writeThis();
         }
     }
 

@@ -1,0 +1,22 @@
+[
+  {
+    "ccClassInheritsFromCCClass": {
+      "__id__": 1
+    },
+    "ccClassInheritsFromTrivialClass": {
+      "__id__": 2
+    }
+  },
+  {
+    "__type__": "super.CCClassInheritsFromCCClass",
+    "superField": "superField",
+    "superFieldToBeOverwritten": "superFieldToBeOverwritten.Derived",
+    "derivedField": "derivedField"
+  },
+  {
+    "__type__": "super.CCClassInheritsFromTrivialClass",
+    "superField": "superField",
+    "superFieldToBeOverwritten": "superFieldToBeOverwritten.Derived",
+    "derivedField": "derivedField"
+  }
+]

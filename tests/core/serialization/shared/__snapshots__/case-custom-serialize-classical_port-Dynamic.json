@@ -1,0 +1,20 @@
+[
+  {
+    "returnObject": {
+      "__id__": 1
+    },
+    "returnNonObject": {
+      "__id__": 2
+    }
+  },
+  {
+    "__type__": "custom-serialize-classical.Foo",
+    "content": {
+      "str": "6+8"
+    }
+  },
+  {
+    "__type__": "custom-serialize-classical.Bar",
+    "content": 7
+  }
+]

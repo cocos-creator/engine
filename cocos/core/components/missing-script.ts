@@ -60,7 +60,7 @@ export default class MissingScript extends Component {
      * @param {string} id
      * @return {function} constructor
      */
-    public static safeFindClass(id: string) {
+    public static safeFindClass (id: string) {
         const cls = _getClassById(id);
         if (cls) {
             return cls;
@@ -75,11 +75,11 @@ export default class MissingScript extends Component {
     @editorOnly
     public _$erialized = null;
 
-    constructor() {
+    constructor () {
         super();
     }
 
-    public onLoad() {
+    public onLoad () {
         warnID(4600, this.node.name);
     }
 }

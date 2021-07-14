@@ -1,0 +1,58 @@
+[
+  {
+    "serializationOutputProperty": {
+      "__id__": 1
+    },
+    "contextSerializeSuper": {
+      "__id__": 2
+    },
+    "contextSerializeSuper1": {
+      "__id__": 3
+    },
+    "contextSerializeSuper2": {
+      "__id__": 4
+    },
+    "contextSerializeThis": {
+      "__id__": 5
+    },
+    "contextSerializeThis1": {
+      "__id__": 6
+    },
+    "contextSerializeThis2": {
+      "__id__": 7
+    }
+  },
+  {
+    "__type__": "custom-serialize-symbol.SerializationOutputProperty",
+    "values": [
+      0.1,
+      0.2,
+      0.3
+    ]
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeSuper",
+    "baseProperty": "",
+    "bar": "SuperProperty"
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeSuper1",
+    "baseProperty": "CustomOverrideSuper"
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeSuper2",
+    "baseProperty": ""
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeThis",
+    "foo": 1
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeThis1",
+    "foo": "Original"
+  },
+  {
+    "__type__": "custom-serialize-symbol.ContextSerializeThis2",
+    "foo": "CustomOverride"
+  }
+]

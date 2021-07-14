@@ -46,6 +46,18 @@ jest.mock('../cocos/core/platform/debug', () => {
     return result;
 });
 
+jest.mock(
+    'cc',
+    () => jest.requireActual('../exports/base'),
+    { virtual: true, },
+);
+
+jest.mock('serialization-test-helper/run-test', () => {
+    return require('../tests/core/serialization/run-test');
+}, {
+    virtual: true,
+});
+
 import '../exports/base';
 import { DebugMode } from "../cocos/core/platform/debug";
 import { game, IGameConfig } from '../exports/base';

@@ -47,7 +47,7 @@ export interface IDependProp {
 export default function deserializeAsset (json: Record<string, any>, options: Record<string, any> & {
     __uuid__?: string;
 }): Asset {
-    let classFinder;
+    let classFinder: deserialize.ClassFinder;
     if (EDITOR) {
         classFinder = (type, data, owner, propName): Constructor<unknown> => {
             const res = missingClass.classFinder(type, data, owner, propName);
@@ -68,7 +68,7 @@ export default function deserializeAsset (json: Record<string, any>, options: Re
         asset = deserialize(json, tdInfo, {
             classFinder,
             customEnv: options,
-        });
+        }) as Asset;
     } catch (e) {
         error(e);
         Details.pool.put(tdInfo);

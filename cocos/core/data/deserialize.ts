@@ -38,6 +38,11 @@ import * as js from '../utils/js';
 import { deserializeDynamic, parseUuidDependenciesDynamic } from './deserialize-dynamic';
 import { Asset } from '../assets/asset';
 
+import { deserializeTag } from './custom-serializable';
+import type { CCON } from './ccon';
+import { reportMissingClass as defaultReportMissingClass } from './report-missing-class';
+import type { CompiledDeserializeFn } from './deserialize-dynamic';
+
 /** **************************************************************************
  * BUILT-IN TYPES / CONSTAINTS
  *************************************************************************** */
@@ -296,11 +301,12 @@ type OtherObjectTypeID = Bnot<number, PrimitiveObjectTypeID>;
 
 type Ctor<T> = new() => T;
 // Includes normal CCClass and fast defined class
-interface CCClass<T> extends Ctor<T> {
+export interface CCClassConstructor<T> extends Ctor<T> {
     __values__: string[]
+    __deserialize__?: CompiledDeserializeFn;
 }
 type AnyCtor = Ctor<Object>;
-type AnyCCClass = CCClass<Object>;
+type AnyCCClass = CCClassConstructor<Object>;
 
 export declare namespace deserialize.Internal {
     export type AnyData_ = AnyData;
@@ -504,12 +510,15 @@ interface ICustomHandler {
     customEnv: any,
 }
 type ClassFinder = (type: string) => AnyCtor;
+
 interface IOptions extends Partial<ICustomHandler> {
     classFinder?: ClassFinder;
+    reportMissingClass: deserialize.ReportMissingClass;
     _version?: number;
 }
 interface ICustomClass {
-    _deserialize: (content: any, context: ICustomHandler) => void;
+    [deserializeTag]?: (content: any, context: ICustomHandler) => void;
+    _deserialize?: (content: any, context: ICustomHandler) => void;
 }
 
 /** **************************************************************************
@@ -681,8 +690,9 @@ function deserializeCCObject (data: IFileData, objectData: IClassObjectData) {
 
 function deserializeCustomCCObject (data: IFileData, ctor: Ctor<ICustomClass>, value: ICustomObjectDataContent) {
     const obj = new ctor();
-    if (obj._deserialize) {
-        obj._deserialize(value, data[File.Context]);
+    const customDeserialize = obj[deserializeTag] ?? obj._deserialize;
+    if (customDeserialize) {
+        customDeserialize(value, data[File.Context]);
     } else {
         errorID(5303, js.getClassName(ctor));
     }
@@ -724,7 +734,7 @@ function parseClass (data: IFileData, owner: any, key: string, value: IClassObje
 }
 
 function parseCustomClass (data: IFileData, owner: any, key: string, value: ICustomObjectData) {
-    const ctor = data[File.SharedClasses][value[CUSTOM_OBJ_DATA_CLASS]] as CCClass<ICustomClass>;
+    const ctor = data[File.SharedClasses][value[CUSTOM_OBJ_DATA_CLASS]] as CCClassConstructor<ICustomClass>;
     owner[key] = deserializeCustomCCObject(data, ctor, value[CUSTOM_OBJ_DATA_CONTENT]);
 }
 
@@ -826,7 +836,7 @@ function parseInstances (data: IFileData): RootInstanceIndex {
         if (type >= 0) {
             // class index for DataTypeID.CustomizedClass
 
-            const ctor = classes[type] as CCClass<ICustomClass>;  // class
+            const ctor = classes[type] as CCClassConstructor<ICustomClass>;  // class
             instances[insIndex] = deserializeCustomCCObject(data, ctor, eachData);
         } else {
             // Other
@@ -859,13 +869,13 @@ function parseInstances (data: IFileData): RootInstanceIndex {
 //     }
 // }
 
-function getMissingClass (hasCustomFinder, type) {
+function getMissingClass (hasCustomFinder, type, reportMissingClass: deserialize.ReportMissingClass) {
     if (!hasCustomFinder) {
-        deserialize.reportMissingClass(type);
+        reportMissingClass(type);
     }
     return Object;
 }
-function doLookupClass (classFinder, type: string, container: any[], index: number, silent: boolean, hasCustomFinder) {
+function doLookupClass (classFinder, type: string, container: any[], index: number, silent: boolean, hasCustomFinder, reportMissingClass: deserialize.ReportMissingClass) {
     let klass = classFinder(type);
     if (!klass) {
         // if (klass.__FSA__) {
@@ -874,19 +884,19 @@ function doLookupClass (classFinder, type: string, container: any[], index: numb
         if (silent) {
             // generate a lazy proxy for ctor
             container[index] = ((c, i, t) => function proxy () {
-                const actualClass = classFinder(t) || getMissingClass(hasCustomFinder, t);
+                const actualClass = classFinder(t) || getMissingClass(hasCustomFinder, t, reportMissingClass);
                 c[i] = actualClass;
                 return new actualClass();
             })(container, index, type);
             return;
         } else {
-            klass = getMissingClass(hasCustomFinder, type);
+            klass = getMissingClass(hasCustomFinder, type, reportMissingClass);
         }
     }
     container[index] = klass;
 }
 
-function lookupClasses (data: IPackedFileData, silent: boolean, customFinder?: ClassFinder) {
+function lookupClasses (data: IPackedFileData, silent: boolean, customFinder: ClassFinder | undefined, reportMissingClass: deserialize.ReportMissingClass) {
     const classFinder = customFinder || js._getClassById;
     const classes = data[File.SharedClasses];
     for (let i = 0; i < classes.length; ++i) {
@@ -898,9 +908,9 @@ function lookupClasses (data: IPackedFileData, silent: boolean, customFinder?: C
                 }
             }
             const type: string = klassLayout[CLASS_TYPE];
-            doLookupClass(classFinder, type, klassLayout as IClass, CLASS_TYPE, silent, customFinder);
+            doLookupClass(classFinder, type, klassLayout as IClass, CLASS_TYPE, silent, customFinder, reportMissingClass);
         } else {
-            doLookupClass(classFinder, klassLayout, classes, i, silent, customFinder);
+            doLookupClass(classFinder, klassLayout, classes, i, silent, customFinder, reportMissingClass);
         }
     }
 }
@@ -953,7 +963,7 @@ function parseResult (data: IFileData) {
     }
 }
 
-export function isCompiledJson (json: object): boolean {
+export function isCompiledJson (json: unknown): boolean {
     if (Array.isArray(json)) {
         const version = json[0];
         // array[0] will not be a number in the editor version
@@ -968,16 +978,15 @@ export function isCompiledJson (json: object): boolean {
  */
 
 /**
- * @en Deserialize json to `Asset`.
- * @zh 将 JSON 反序列化为对象实例。
+ * @en Deserializes a previously serialized object to reconstruct it to the original.
+ * @zh 将序列化后的对象进行反序列化以使其复原。
  *
- * @method deserialize
- * @param {String|Object} data - the serialized `Asset` json string or json object.
- * @param {Details} [details] - additional loading result
- * @param {Object} [options]
- * @return {object} the main data(asset)
+ * @param data Serialized data.
+ * @param details - Additional loading result.
+ * @param options Deserialization Options.
+ * @return The original object.
  */
-export function deserialize (data: IFileData | string | any, details: Details | any, options?: IOptions | any): any {
+export function deserialize (data: IFileData | string | CCON | any, details: Details | any, options?: IOptions | any): unknown {
     if (typeof data === 'string') {
         data = JSON.parse(data);
     }
@@ -1006,7 +1015,7 @@ export function deserialize (data: IFileData | string | any, details: Details | 
         data[File.Context] = options;
 
         if (!preprocessed) {
-            lookupClasses(data, false, options.classFinder);
+            lookupClasses(data, false, options.classFinder, options.reportMissingClass ?? deserialize.reportMissingClass);
             cacheMasks(data);
         }
 
@@ -1039,15 +1048,20 @@ export function deserialize (data: IFileData | string | any, details: Details | 
     return res;
 }
 
+export declare namespace deserialize {
+    export type SerializableClassConstructor = new () => unknown;
+
+    export type ReportMissingClass = (id: string) => void;
+
+    export type ClassFinder = {
+        (id: string, serialized: unknown, owner?: unknown[] | Record<PropertyKey, unknown>, propName?: string): SerializableClassConstructor | undefined;
+
+        onDereferenced?: (deserializedList: Array<Record<PropertyKey, unknown> | undefined>, id: number, object: Record<string, unknown> | unknown[], propName: string) => void;
+    };
+}
+
 deserialize.Details = Details;
-deserialize.reportMissingClass = (id: string) => {
-    if (EDITOR && EditorExtends.UuidUtils.isUuid(id)) {
-        id = EditorExtends.UuidUtils.decompressUuid(id);
-        warnID(5301, id);
-    } else {
-        warnID(5302, id);
-    }
-};
+deserialize.reportMissingClass = defaultReportMissingClass;
 
 class FileInfo {
     declare version: number;
@@ -1057,11 +1071,11 @@ class FileInfo {
     }
 }
 
-export function unpackJSONs (data: IPackedFileData, classFinder?: ClassFinder): IFileData[] {
+export function unpackJSONs (data: IPackedFileData, classFinder?: ClassFinder, reportMissingClass?: deserialize.ReportMissingClass): IFileData[] {
     if (data[File.Version] < SUPPORT_MIN_FORMAT_VERSION) {
         throw new Error(getError(5304, data[File.Version]));
     }
-    lookupClasses(data, true, classFinder);
+    lookupClasses(data, true, classFinder, reportMissingClass ?? deserialize.reportMissingClass);
     cacheMasks(data);
 
     const version = new FileInfo(data[File.Version]);
